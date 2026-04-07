@@ -24,7 +24,7 @@
   default-bundle = "9.1";
 
   bundles."9.1"= {
-    rocqPackages.rocq-core.override.version = "9.1";
+    rocqPackages.rocq-core.override.version = "9.1.1";
     rocqPackages.wasmcert.override.version = "v2.2.0";
 
     ## You can override Coq and other coqPackages
