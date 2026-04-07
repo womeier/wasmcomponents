@@ -1,5 +1,16 @@
 WIP formalisation of the Wasm component standard
 
+## Usage
+```
+# build package
+nix-build
+# or
+nix build .#wasmcomponents
+
+# enter dev shell
+nix develop
+```
+
 ## Resources (see the repos in the submodules folder)
 The [documentation](https://component-model.bytecodealliance.org/introduction.html) of the component model by the Bytecodealliance.
 

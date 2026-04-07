@@ -1,5 +1,5 @@
 {
-  description = "WasmComp-Cert development environment";
+  description = "WasmComponents development environment";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
@@ -23,22 +23,44 @@
             ];
         };
 
+        rocqPackages = pkgs.rocqPackages_9_1;
         coqPackages = pkgs.coqPackages_9_1;
 
-        coq = coqPackages.coq;
+        rocq-core = rocqPackages.rocq-core;
         wasmcert = coqPackages.wasmcert;
+        vsrocq-language-server = rocqPackages.vsrocq-language-server;
+
+        # Build wasmcomponents package, copy-pasted from nix toolbox for now
+        wasmcomponents = rocqPackages.mkRocqDerivation {
+          pname = "wasmcomponents";
+          version = "dev";
+          src = lib.cleanSource self;
+
+          propagatedBuildInputs = [
+            rocqPackages.stdlib
+            wasmcert
+          ];
+
+          meta = {
+            description = "Formalization of the Wasm component standard in Rocq";
+            license = lib.licenses.mit;
+          };
+        };
 
       in
       {
+        packages.default = wasmcomponents;
+        packages.wasmcomponents = wasmcomponents;
+
         devShells.default = pkgs.mkShell {
-          name = "wasmcomp-cert";
+          name = "wasmcomponents";
           packages = [
-            coq
+            rocq-core
             wasmcert
-            coqPackages.vscoq-language-server
+            vsrocq-language-server
           ];
           shellHook = ''
-            echo "WasmComp-Cert development environment"
+            echo "WasmComponents development environment"
           '';
         };
       }
