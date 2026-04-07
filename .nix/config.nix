@@ -17,15 +17,15 @@
   ## /!\ Remove this field as soon as the package is available on nixpkgs.
   ## /!\ Manual overlays in `.nix/rocq-overlays` or `.nix/coq-overlays`
   ##     should be preferred then.
-  ## buildInputs = [ wasmcert ];
+  ## buildInputs = [ rocqPackages.wasmcert ];
 
   ## select an entry to build in the following `bundles` set
   ## defaults to "default"
-  default-bundle = "9.0";
+  default-bundle = "9.1";
 
-  bundles."9.0"= {
-    rocqPackages.rocq-core.override.version = "9.0";
-    rocqPackages.wasmcert.override.version = "2.2.0";
+  bundles."9.1"= {
+    rocqPackages.rocq-core.override.version = "9.1.1";
+    rocqPackages.wasmcert.override.version = "v2.2.0";
 
     ## You can override Coq and other coqPackages
     ## through the following attribute
