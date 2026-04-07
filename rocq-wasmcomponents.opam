@@ -1,21 +1,20 @@
 opam-version: "2.0"
-maintainer: ""
+maintainer: "W. Meier"
 version: "dev"
 license: "MIT"
 
 synopsis: "WasmComponents"
-description: """WasmComponents project."""
+description: "Formalization of the Wasm Component standard."
 
 build: [make "-j%{jobs}%"]
 install: [make "install"]
 depends: [
   "rocq-core" {>= "9.0"}
-  "rocq-stdlib" {>= "9.0"}
-  "coq-wasm" {>= "2.2.1"}
+  "rocq-stdlib"
+  "coq-wasm" {>= "2.2.0"}
 ]
 
 tags: [
   "logpath:wasmcomponents"
 ]
-authors: [
-]
+authors: [ "W. Meier" ]
