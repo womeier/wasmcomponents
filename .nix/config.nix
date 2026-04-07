@@ -17,7 +17,7 @@
   ## /!\ Remove this field as soon as the package is available on nixpkgs.
   ## /!\ Manual overlays in `.nix/rocq-overlays` or `.nix/coq-overlays`
   ##     should be preferred then.
-  buildInputs = [ rocqPackages.wasmcert ];
+  ## buildInputs = [ rocqPackages.wasmcert ];
 
   ## select an entry to build in the following `bundles` set
   ## defaults to "default"
