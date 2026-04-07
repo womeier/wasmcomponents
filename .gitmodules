@@ -1,3 +1,6 @@
 [submodule "submodules/wasm-tools"]
 	path = submodules/wasm-tools
 	url = https://github.com/bytecodealliance/wasm-tools
+[submodule "submodules/component-model"]
+	path = submodules/component-model
+	url = https://github.com/WebAssembly/component-model
