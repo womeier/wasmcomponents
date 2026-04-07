@@ -1,0 +1,14 @@
+*.vo
+*.vok
+*.vos
+*.glob
+*.aux
+.*.aux
+*.crashcoqide
+Makefile.coq
+Makefile.coq.conf
+Makefile.rocq
+Makefile.rocq.conf
+.Makefile.rocq.d
+.coqdeps.d
+result

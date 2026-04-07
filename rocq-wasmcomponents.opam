@@ -1,0 +1,21 @@
+opam-version: "2.0"
+maintainer: ""
+version: "dev"
+license: "MIT"
+
+synopsis: "WasmComponents"
+description: """WasmComponents project."""
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+depends: [
+  "rocq-core" {>= "9.0"}
+  "rocq-stdlib" {>= "9.0"}
+  "coq-wasm" {>= "2.2.1"}
+]
+
+tags: [
+  "logpath:wasmcomponents"
+]
+authors: [
+]
