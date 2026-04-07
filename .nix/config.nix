@@ -21,11 +21,11 @@
 
   ## select an entry to build in the following `bundles` set
   ## defaults to "default"
-  default-bundle = "9.0";
+  default-bundle = "9.1";
 
-  bundles."9.0"= {
-    rocqPackages.rocq-core.override.version = "9.0";
-    rocqPackages.wasmcert.override.version = "2.2.0";
+  bundles."9.1"= {
+    rocqPackages.rocq-core.override.version = "9.1";
+    rocqPackages.wasmcert.override.version = "v2.2.0";
 
     ## You can override Coq and other coqPackages
     ## through the following attribute
