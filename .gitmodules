@@ -4,3 +4,9 @@
 [submodule "submodules/component-model"]
 	path = submodules/component-model
 	url = https://github.com/WebAssembly/component-model
+[submodule "submodules/wasmcert-coq"]
+	path = submodules/wasmcert-coq
+	url = https://github.com/wasmcert/wasmcert-coq
+[submodule "submodules/WASI"]
+	path = submodules/WASI
+	url = https://github.com/WebAssembly/WASI
