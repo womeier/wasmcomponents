@@ -44,11 +44,20 @@
             wasmcert
           ];
 
-          postInstall = ''
+          buildPhase = ''
+            runHook preBuild
+
+            make
+            make src/wit_parser_bin
+
+            runHook postBuild
+          '';
+
+          installPhase = ''
             runHook preInstall
 
             mkdir -p $out/bin
-            cp wit_parser_bin $out/bin
+            cp src/wit_parser_bin $out/bin
 
             runHook postInstall
           '';
