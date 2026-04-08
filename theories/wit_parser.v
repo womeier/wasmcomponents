@@ -588,6 +588,7 @@ Definition parse_results (fuel : nat) : parser (list wit_type) :=
 Definition parse_wit_func (fuel : nat) : parser wit_func :=
   tok_ident >>= (fun name =>
   tok_exact TokColon *>
+  p_option (tok_keyword "async") *>
   tok_keyword "func" *>
   parse_params fuel >>= (fun params =>
   parse_results fuel >>= (fun results =>
@@ -660,21 +661,63 @@ Inductive iface_item :=
   | IItemFunc     : wit_func           -> iface_item
   | IItemResource : string             -> iface_item.
 
-(** [parse_resource_decl] — parse [resource name;].
+(** [parse_resource_method fuel] — parse one method item inside a resource
+    body: [constructor(params);] or [name: [static] [async] func(...) -> ...;]. *)
+Definition parse_resource_method (fuel : nat) : parser unit :=
+  (* constructor(...); *)
+  (tok_keyword "constructor" *>
+   parse_params fuel *>
+   tok_exact TokSemicolon *>
+   p_return tt)
+  <|>
+  (* name: [static] [async] func(...) -> ...; *)
+  (tok_ident *>
+   tok_exact TokColon *>
+   p_option (tok_keyword "static") *>
+   p_option (tok_keyword "async") *>
+   tok_keyword "func" *>
+   parse_params fuel *>
+   parse_results fuel *>
+   tok_exact TokSemicolon *>
+   p_return tt).
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
-Definition parse_resource_decl : parser string :=
+(** [parse_resource_decl fuel] — parse [resource name;] or
+    [resource name { method* }]. *)
+Fixpoint parse_resource_body (fuel : nat) (ts : list wit_token)
+    : option (unit * list wit_token) :=
+  match fuel with
+  | O => Some (tt, ts)
+  | S fuel' =>
+      match parse_resource_method fuel' ts with
+      | None => Some (tt, ts)
+      | Some (_, ts') =>
+          match parse_resource_body fuel' ts' with
+          | None => Some (tt, ts')
+          | Some r => Some r
+          end
+      end
+  end.
+
+Definition parse_resource_decl (fuel : nat) : parser string :=
   tok_keyword "resource" *>
-  tok_ident <* tok_exact TokSemicolon.
+  tok_ident >>= (fun name =>
+  (* semicolon: bare declaration *)
+  (tok_exact TokSemicolon *> p_return name)
+  <|>
+  (* brace body *)
+  (tok_exact TokLBrace *>
+   (fun ts => parse_resource_body (List.length ts + 1) ts) *>
+   tok_exact TokRBrace *>
+   p_return name)).
 
 Definition parse_iface_item (fuel : nat) : parser iface_item :=
   (* type alias: type name = ...; *)
   ((fun '(n, t) => IItemType n t) <$> parse_type_alias fuel)
   <|>
-  (* resource: resource name; *)
-  (IItemResource <$> parse_resource_decl)
+  (* resource: resource name; or resource name { ... } *)
+  (IItemResource <$> parse_resource_decl fuel)
   <|>
-  (* function: name: func(...) -> ...; *)
+  (* function: name: [async] func(...) -> ...; *)
   (IItemFunc <$> parse_wit_func fuel).
 
 (** *** Interface declaration
@@ -799,9 +842,25 @@ Definition parse_world_inline_item (fuel : nat) (kw : string)
   parse_wit_interface fuel >>= (fun iface =>
   p_return (mk name iface))).
 
+(** [parse_world_func_item fuel kw mk] — parse
+    [import|export name: [async] func(...) -> ...;]. *)
+Definition parse_world_func_item (fuel : nat) (kw : string)
+    (mk : string -> wit_interface -> world_item) : parser world_item :=
+  tok_keyword kw *>
+  tok_ident >>= (fun name =>
+  tok_exact TokColon *>
+  p_option (tok_keyword "async") *>
+  tok_keyword "func" *>
+  parse_params fuel *>
+  parse_results fuel *>
+  tok_exact TokSemicolon *>
+  p_return (mk name (stub_iface name))).
+
 Definition parse_world_item (fuel : nat) : parser world_item :=
-  parse_world_inline_item fuel "import" WItemImport
+  parse_world_func_item fuel "import" WItemImport
+  <|> parse_world_inline_item fuel "import" WItemImport
   <|> parse_world_ref_item "import" WItemImport
+  <|> parse_world_func_item fuel "export" WItemExport
   <|> parse_world_inline_item fuel "export" WItemExport
   <|> parse_world_ref_item "export" WItemExport.
 
@@ -841,6 +900,13 @@ Definition collect_world_items (items : list world_item)
 
     Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
     Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#worlds *)
+(** [has_duplicates xs] — true iff [xs] contains any duplicate string. *)
+Fixpoint has_duplicates (xs : list string) : bool :=
+  match xs with
+  | [] => false
+  | x :: rest => List.existsb (String.eqb x) rest || has_duplicates rest
+  end.
+
 Definition parse_wit_world (fuel : nat) : parser wit_world :=
   tok_keyword "world" *>
   tok_ident >>= (fun name =>
@@ -853,9 +919,13 @@ Definition parse_wit_world (fuel : nat) : parser wit_world :=
      end) >>= (fun items =>
   tok_exact TokRBrace *>
   (let '(imports, exports) := collect_world_items items in
-   p_return {| world_name    := name;
-               world_imports := imports;
-               world_exports := exports |}))).
+   let import_names := List.map fst imports in
+   let export_names := List.map fst exports in
+   if has_duplicates import_names || has_duplicates export_names
+   then p_fail
+   else p_return {| world_name    := name;
+                    world_imports := imports;
+                    world_exports := exports |}))).
 
 (** *** Package header
 
