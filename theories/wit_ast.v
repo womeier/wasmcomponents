@@ -3,8 +3,8 @@
     Defines the abstract syntax for WIT (WebAssembly Interface Types),
     the interface definition language for the WebAssembly Component Model.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md}} *)
 
 From Stdlib Require Import String List.
 Import ListNotations.
@@ -13,8 +13,8 @@ Import ListNotations.
 
     The built-in scalar types in WIT.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs#L1
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#primitive-types *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs#L1}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#primitive-types}} *)
 Inductive wit_primitive :=
   | WitU8 | WitU16 | WitU32 | WitU64
   | WitS8 | WitS16 | WitS32 | WitS64
@@ -26,8 +26,8 @@ Inductive wit_primitive :=
     The full set of types expressible in WIT, including composite and
     reference types.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#wit-types *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#wit-types}} *)
 Inductive wit_type :=
   (** Primitive scalar type *)
   | WitPrim    : wit_primitive -> wit_type
@@ -64,8 +64,8 @@ Inductive wit_type :=
 
     A named function with typed parameters and results.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#functions *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#functions}} *)
 Record wit_func := {
   func_name    : string;
   func_params  : list (string * wit_type);
@@ -77,8 +77,8 @@ Record wit_func := {
 
     A named collection of type aliases, functions, and resources.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#interfaces *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#interfaces}} *)
 Record wit_interface := {
   iface_name      : string;
   iface_types     : list (string * wit_type);
@@ -91,8 +91,8 @@ Record wit_interface := {
     A world describes a component's imports and exports in terms of
     named interfaces.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#worlds *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#worlds}} *)
 Record wit_world := {
   world_name    : string;
   world_imports : list (string * wit_interface);
@@ -105,8 +105,8 @@ Record wit_world := {
     interfaces and worlds under a namespaced name with an optional
     semantic version.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#packages *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#packages}} *)
 Record wit_package := {
   pkg_namespace  : string;
   pkg_name       : string;

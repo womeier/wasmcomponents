@@ -3,8 +3,8 @@
     Implements a lexer and recursive-descent parser for WIT
     (WebAssembly Interface Types) files, producing [wit_package] AST values.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md}} *)
 
 From Stdlib Require Import Ascii String List Bool.
 Import ListNotations.
@@ -22,8 +22,8 @@ Open Scope string_scope.
     Keywords and identifiers are both represented as [TokIdent]; the
     parser distinguishes them by string comparison.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#lexical-structure *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#lexical-structure}} *)
 Inductive wit_token :=
   | TokIdent   : string -> wit_token
   | TokLBrace | TokRBrace
@@ -36,7 +36,7 @@ Inductive wit_token :=
 
 (** [is_alpha c] — true if [c] is an ASCII letter.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Definition is_alpha (c : ascii) : bool :=
   let n := nat_of_ascii c in
   (Nat.leb 65 n && Nat.leb n 90) ||   (* A-Z *)
@@ -44,7 +44,7 @@ Definition is_alpha (c : ascii) : bool :=
 
 (** [is_digit c] — true if [c] is an ASCII decimal digit.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Definition is_digit (c : ascii) : bool :=
   let n := nat_of_ascii c in
   Nat.leb 48 n && Nat.leb n 57.       (* 0-9 *)
@@ -52,14 +52,14 @@ Definition is_digit (c : ascii) : bool :=
 (** [is_ident_cont c] — true for characters that may appear after the
     first character of a WIT identifier (alpha, digit, [-], [_]).
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Definition is_ident_cont (c : ascii) : bool :=
   is_alpha c || is_digit c ||
   Ascii.eqb c "-"%char || Ascii.eqb c "_"%char.
 
 (** [is_whitespace c] — true for space, tab, newline, carriage-return.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Definition is_whitespace (c : ascii) : bool :=
   Ascii.eqb c " "%char  ||
   Ascii.eqb c "009"%char ||  (* tab *)
@@ -71,7 +71,7 @@ Definition is_whitespace (c : ascii) : bool :=
 (** [lex_ident_chars cs] — collect identifier-continuation characters,
     returning [(word, rest)].  Structurally recursive on [cs].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Fixpoint lex_ident_chars (cs : list ascii) : string * list ascii :=
   match cs with
   | c :: rest =>
@@ -85,7 +85,7 @@ Fixpoint lex_ident_chars (cs : list ascii) : string * list ascii :=
 (** [skip_line cs] — discard characters through the next newline.
     Structurally recursive on [cs].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Fixpoint skip_line (cs : list ascii) : list ascii :=
   match cs with
   | [] => []
@@ -99,7 +99,7 @@ Fixpoint skip_line (cs : list ascii) : list ascii :=
     [/* ... */].  [depth] tracks open-comment nesting level.  Uses
     [fuel] for termination.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Fixpoint skip_block (fuel : nat) (depth : nat) (cs : list ascii)
     : option (list ascii) :=
   match fuel with
@@ -123,8 +123,8 @@ Fixpoint skip_block (fuel : nat) (depth : nat) (cs : list ascii)
     [tokenize fuel cs acc] — convert the character list [cs] into
     tokens, prepending to [acc] (reversed), returning [None] on error.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#lexical-structure *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#lexical-structure}} *)
 Fixpoint tokenize (fuel : nat) (cs : list ascii) (acc : list wit_token)
     : option (list wit_token) :=
   match fuel with
@@ -194,8 +194,8 @@ Fixpoint tokenize (fuel : nat) (cs : list ascii) (acc : list wit_token)
 
 (** [lex s] — tokenize the string [s], returning [None] on lexical error.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#lexical-structure *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#lexical-structure}} *)
 Definition lex (s : string) : option (list wit_token) :=
   let cs := list_ascii_of_string s in
   let fuel := List.length cs * 2 + 1 in
@@ -210,25 +210,25 @@ Definition lex (s : string) : option (list wit_token) :=
     A parser for values of type [A] is a function from a token stream
     to an optional pair [(result, remaining_tokens)].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition parser (A : Type) : Type :=
   list wit_token -> option (A * list wit_token).
 
 (** [p_return x] — always succeeds with [x], consuming no tokens.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition p_return {A : Type} (x : A) : parser A :=
   fun ts => Some (x, ts).
 
 (** [p_fail] — always fails.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition p_fail {A : Type} : parser A :=
   fun _ => None.
 
 (** [p_bind p f] — monadic bind: run [p], then pass the result to [f].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition p_bind {A B : Type} (p : parser A) (f : A -> parser B) : parser B :=
   fun ts =>
     match p ts with
@@ -238,7 +238,7 @@ Definition p_bind {A B : Type} (p : parser A) (f : A -> parser B) : parser B :=
 
 (** [p_map f p] — apply [f] to the result of [p].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition p_map {A B : Type} (f : A -> B) (p : parser A) : parser B :=
   fun ts =>
     match p ts with
@@ -248,7 +248,7 @@ Definition p_map {A B : Type} (f : A -> B) (p : parser A) : parser B :=
 
 (** [p_alt p1 p2] — try [p1]; if it fails, try [p2] on the same input.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition p_alt {A : Type} (p1 p2 : parser A) : parser A :=
   fun ts =>
     match p1 ts with
@@ -277,7 +277,7 @@ Notation "p1 <* p2" :=
 
 (** [tok_ident] — consume any [TokIdent] token and return its string.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition tok_ident : parser string :=
   fun ts =>
     match ts with
@@ -287,7 +287,7 @@ Definition tok_ident : parser string :=
 
 (** [tok_keyword kw] — consume [TokIdent kw] matching exactly [kw].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition tok_keyword (kw : string) : parser unit :=
   fun ts =>
     match ts with
@@ -298,7 +298,7 @@ Definition tok_keyword (kw : string) : parser unit :=
 
 (** [tok_exact t] — consume a specific non-ident token.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition wit_token_eqb (t1 t2 : wit_token) : bool :=
   match t1, t2 with
   | TokLBrace,    TokLBrace    => true
@@ -329,13 +329,13 @@ Definition tok_exact (t : wit_token) : parser unit :=
 
 (** [p_option p] — optionally run [p]; returns [Some x] or [None].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition p_option {A : Type} (p : parser A) : parser (option A) :=
   (fun x => Some x) <$> p <|> p_return None.
 
 (** [p_sep_by sep p] — parse zero or more [p] separated by [sep].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Fixpoint p_sep_by_fuel {A : Type} (fuel : nat)
     (sep : parser unit) (p : parser A) (ts : list wit_token)
     : option (list A * list wit_token) :=
@@ -369,7 +369,7 @@ Definition p_sep_by {A : Type} (sep : parser unit) (p : parser A)
 
     [parse_primitive s] — map a keyword string to a [wit_primitive].
 
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#primitive-types *)
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#primitive-types}} *)
 Definition parse_primitive (s : string) : option wit_primitive :=
   if      String.eqb s "u8"     then Some WitU8
   else if String.eqb s "u16"    then Some WitU16
@@ -391,8 +391,8 @@ Definition parse_primitive (s : string) : option wit_primitive :=
     [parse_wit_type fuel] — parse a WIT type expression.  [fuel] guards
     the recursion that Rocq cannot verify structurally.
 
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#wit-types
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#wit-types}}
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Fixpoint parse_wit_type (fuel : nat) : parser wit_type :=
   match fuel with
   | O => p_fail
@@ -556,7 +556,7 @@ Fixpoint parse_wit_type (fuel : nat) : parser wit_type :=
     [parse_params fuel] — parse [(name: type, ...)] returning a
     [list (string * wit_type)].
 
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#functions *)
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#functions}} *)
 Definition parse_params (fuel : nat) : parser (list (string * wit_type)) :=
   tok_exact TokLParen *>
   p_sep_by (tok_exact TokComma)
@@ -571,7 +571,7 @@ Definition parse_params (fuel : nat) : parser (list (string * wit_type)) :=
 
     [parse_results fuel] — parse the optional [-> type] return.
 
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#functions *)
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#functions}} *)
 Definition parse_results (fuel : nat) : parser (list wit_type) :=
   p_option (tok_exact TokArrow *> parse_wit_type fuel) >>= (fun opt =>
   match opt with
@@ -583,8 +583,8 @@ Definition parse_results (fuel : nat) : parser (list wit_type) :=
 
     [parse_wit_func fuel] — parse [name: func(params) -> result;].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#functions *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#functions}} *)
 Definition parse_wit_func (fuel : nat) : parser wit_func :=
   tok_ident >>= (fun name =>
   tok_exact TokColon *>
@@ -601,8 +601,8 @@ Definition parse_wit_func (fuel : nat) : parser wit_func :=
 
     [parse_type_alias fuel] — parse [type name = type;] inside an interface.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#type-definitions *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#type-definitions}} *)
 Definition parse_type_alias (fuel : nat) : parser (string * wit_type) :=
   tok_keyword "type" *>
   tok_ident >>= (fun name =>
@@ -616,7 +616,7 @@ Definition parse_type_alias (fuel : nat) : parser (string * wit_type) :=
     [parse_inline_typedef fuel] — parse a named composite-type definition
     that does not use the [type = …] syntax (e.g. [record point { x: s32 }]).
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}} *)
 Definition parse_inline_typedef (fuel : nat) : parser (string * wit_type) :=
   (* We look ahead for one of the composite keywords, then parse a name,
      then parse the body (using parse_wit_type on the whole keyword+body). *)
@@ -653,8 +653,8 @@ Definition parse_inline_typedef (fuel : nat) : parser (string * wit_type) :=
     (record/variant/enum/flags with a leading [type name =]), a resource
     declaration, or a function.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#interfaces *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#interfaces}} *)
 
 Inductive iface_item :=
   | IItemType     : string -> wit_type -> iface_item
@@ -782,8 +782,8 @@ Definition parse_iface_item (fuel : nat) : parser iface_item :=
 
     [parse_wit_interface fuel] — parse [interface name { ... }].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#interfaces *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#interfaces}} *)
 Fixpoint parse_iface_items (fuel : nat) (p : parser iface_item)
     (ts : list wit_token)
     : option (list iface_item * list wit_token) :=
@@ -935,8 +935,8 @@ Definition parse_wit_interface (fuel : nat) : parser wit_interface :=
 
     [parse_world_item fuel] — parse a single [import …;] or [export …;].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#worlds *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#worlds}} *)
 
 Inductive world_item :=
   | WItemImport : string -> wit_interface -> world_item
@@ -1027,8 +1027,8 @@ Definition collect_world_items (items : list world_item)
 
 (** [parse_wit_world fuel] — parse [world name { import ...; export ...; }].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#worlds *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#worlds}} *)
 
 Definition parse_wit_world (fuel : nat) : parser wit_world :=
   tok_keyword "world" *>
@@ -1054,8 +1054,8 @@ Definition parse_wit_world (fuel : nat) : parser wit_world :=
 
     [parse_package_header] — parse [package ns:name@ver;].
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#packages *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#packages}} *)
 
 (** [parse_version] — parse [@version-string] where the version is a
     sequence of ident tokens joined by [.] and [-].  We collect the
@@ -1166,8 +1166,8 @@ Definition validate_package (pkg : wit_package) : bool :=
 
 (** [parse_wit_package fuel] — parse a complete WIT document.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54comp4f62de4fa5c9/design/mvp/WIT.md#packages *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#packages}} *)
 Definition parse_wit_package (fuel : nat) : parser wit_package :=
   parse_package_header >>= (fun '(ns, name, ver) =>
   (fun ts =>
@@ -1186,8 +1186,8 @@ Definition parse_wit_package (fuel : nat) : parser wit_package :=
 
 (** [parse_wit fuel s] — lex [s] then parse it as a WIT package.
 
-    Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md *)
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md}} *)
 Definition parse_wit (fuel : nat) (s : string) : option wit_package :=
   match lex s with
   | None => None
