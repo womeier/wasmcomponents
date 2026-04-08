@@ -12,8 +12,8 @@ rocq: $(ROCQMAKEFILE)
 # OCaml binary from extracted Rocq code
 # ============================================================
 
-src/extraction: theories/extraction.vo
-	rm -rf src/extraction
+src/extraction: rocq
+	rm -rf src/extraction theories/extraction
 	make -f $(ROCQMAKEFILE)
 
 src/wit_parser_bin: src/extraction src/main.ml
@@ -59,7 +59,7 @@ install: $(ROCQMAKEFILE)
 	$(MAKE) -f $(ROCQMAKEFILE) install
 
 
-run_tests: rocq src/wit_parser_bin
-	src/wit_parser_bin --help
+run_tests: src/wit_parser_bin
+	python3 testing/test_parser.py
 
 .PHONY: all rocq clean install
