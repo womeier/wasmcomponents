@@ -2,6 +2,7 @@
 """Test the extracted Rocq WIT parser against the wasm-tools test suite."""
 
 import subprocess
+from tqdm import tqdm
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -23,7 +24,7 @@ def main():
     correct = []
     incorrect = []
 
-    for wit in wit_files:
+    for wit in tqdm(wit_files):
         expect_fail = "parse-fail" in wit.parts
         result = subprocess.run([str(PARSER), str(wit)], capture_output=True)
         ok = result.returncode == 0
@@ -38,11 +39,19 @@ def main():
     print(f"Results: {len(correct)}/{total} correct ({pct:.1f}%)\n")
 
     if incorrect:
-        print("Incorrect files:")
-        for f, ok, expect_fail in incorrect:
-            outcome = "parsed" if ok else "failed to parse"
-            expected = "expected to fail" if expect_fail else "expected to parse"
-            print(f"  {f.relative_to(WIT_TESTS)}  ({outcome}, {expected})")
+        false_positives = [(f, ok, ef) for f, ok, ef in incorrect if ok and ef]
+        false_negatives = [(f, ok, ef) for f, ok, ef in incorrect if not ok and not ef]
+
+        if false_positives:
+            print("Parsed but expected to fail:")
+            for f, ok, ef in false_positives:
+                print(f"  {f.relative_to(WIT_TESTS)}")
+            print()
+
+        if false_negatives:
+            print("Failed to parse but expected to parse:")
+            for f, ok, ef in false_negatives:
+                print(f"  {f.relative_to(WIT_TESTS)}")
 
 
 if __name__ == "__main__":

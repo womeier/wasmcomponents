@@ -13,7 +13,7 @@ rocq: $(ROCQMAKEFILE)
 # ============================================================
 
 src/extraction: rocq
-	rm -rf src/extraction theories/extraction
+	rm -rf src/extraction theories/extraction theories/extraction.vo
 	make -f $(ROCQMAKEFILE)
 
 src/wit_parser_bin: src/extraction src/main.ml
