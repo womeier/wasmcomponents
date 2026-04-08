@@ -681,21 +681,25 @@ Definition parse_resource_method (fuel : nat) : parser unit :=
    tok_exact TokSemicolon *>
    p_return tt).
 
-(** [parse_resource_decl fuel] — parse [resource name;] or
-    [resource name { method* }]. *)
-Fixpoint parse_resource_body (fuel : nat) (ts : list wit_token)
+(** [parse_resource_body fuel ctor_seen ts] — parse zero or more resource
+    method items, failing if a second [constructor] is encountered. *)
+Fixpoint parse_resource_body (fuel : nat) (ctor_seen : bool) (ts : list wit_token)
     : option (unit * list wit_token) :=
   match fuel with
   | O => Some (tt, ts)
   | S fuel' =>
-      match parse_resource_method fuel' ts with
-      | None => Some (tt, ts)
-      | Some (_, ts') =>
-          match parse_resource_body fuel' ts' with
-          | None => Some (tt, ts')
-          | Some r => Some r
-          end
-      end
+      (* Peek: if next token is "constructor", check for duplicate *)
+      let is_ctor := match ts with
+                     | TokIdent s :: _ => String.eqb s "constructor"
+                     | _ => false
+                     end in
+      if is_ctor && ctor_seen then None   (* duplicate constructor *)
+      else
+        match parse_resource_method fuel' ts with
+        | None => Some (tt, ts)
+        | Some (_, ts') =>
+            parse_resource_body fuel' (ctor_seen || is_ctor) ts'
+        end
   end.
 
 Definition parse_resource_decl (fuel : nat) : parser string :=
@@ -706,7 +710,7 @@ Definition parse_resource_decl (fuel : nat) : parser string :=
   <|>
   (* brace body *)
   (tok_exact TokLBrace *>
-   (fun ts => parse_resource_body (List.length ts + 1) ts) *>
+   (fun ts => parse_resource_body (List.length ts + 1) false ts) *>
    tok_exact TokRBrace *>
    p_return name)).
 
@@ -754,38 +758,40 @@ Definition collect_iface_items (items : list iface_item)
     ([], [], [])
     items.
 
-(** [check_type_names defined ty] — true iff every [WitNamed], [WitOwn],
-    and [WitBorrow] reference inside [ty] appears in [defined]. *)
-Fixpoint check_type_names (defined : list string) (ty : wit_type) : bool :=
+(** [check_type_names all_names resource_names ty] — true iff every
+    [WitNamed] reference is in [all_names] and every [WitOwn]/[WitBorrow]
+    reference is in [resource_names] (resources only, not type aliases). *)
+Fixpoint check_type_names (all_names resource_names : list string) (ty : wit_type) : bool :=
   match ty with
   | WitPrim _        => true
-  | WitList t        => check_type_names defined t
-  | WitOption t      => check_type_names defined t
+  | WitList t        => check_type_names all_names resource_names t
+  | WitOption t      => check_type_names all_names resource_names t
   | WitResult ok err =>
-      (match ok  with Some t => check_type_names defined t | None => true end) &&
-      (match err with Some t => check_type_names defined t | None => true end)
-  | WitTuple ts      => List.forallb (check_type_names defined) ts
-  | WitRecord fields => List.forallb (fun '(_, t) => check_type_names defined t) fields
-  | WitVariant cases => List.forallb (fun '(_, opt) =>
-      match opt with Some t => check_type_names defined t | None => true end) cases
+      (match ok  with Some t => check_type_names all_names resource_names t | None => true end) &&
+      (match err with Some t => check_type_names all_names resource_names t | None => true end)
+  | WitTuple ts      => List.forallb (check_type_names all_names resource_names) ts
+  | WitRecord fields => List.forallb (fun p => check_type_names all_names resource_names (snd p)) fields
+  | WitVariant cases => List.forallb (fun p =>
+      match snd p with Some t => check_type_names all_names resource_names t | None => true end) cases
   | WitEnum _        => true
   | WitFlags _       => true
   | WitResource _    => true
-  | WitOwn   name    => List.existsb (String.eqb name) defined
-  | WitBorrow name   => List.existsb (String.eqb name) defined
-  | WitStream opt    => match opt with Some t => check_type_names defined t | None => true end
-  | WitFuture opt    => match opt with Some t => check_type_names defined t | None => true end
-  | WitNamed name    => List.existsb (String.eqb name) defined
+  | WitOwn   name    => List.existsb (String.eqb name) resource_names
+  | WitBorrow name   => List.existsb (String.eqb name) resource_names
+  | WitStream opt    => match opt with Some t => check_type_names all_names resource_names t | None => true end
+  | WitFuture opt    => match opt with Some t => check_type_names all_names resource_names t | None => true end
+  | WitNamed name    => List.existsb (String.eqb name) all_names
   end.
 
 (** [validate_iface iface] — reject interfaces where type aliases or
     function signatures reference undefined names. *)
 Definition validate_iface (iface : wit_interface) : bool :=
-  let defined := List.app (List.map fst (iface_types iface)) (iface_resources iface) in
-  List.forallb (fun p => check_type_names defined (snd p)) (iface_types iface) &&
+  let all_names    := List.app (List.map fst (iface_types iface)) (iface_resources iface) in
+  let resource_names := iface_resources iface in
+  List.forallb (fun p => check_type_names all_names resource_names (snd p)) (iface_types iface) &&
   List.forallb (fun f =>
-    List.forallb (fun p => check_type_names defined (snd p)) (func_params f) &&
-    List.forallb (check_type_names defined) (func_results f))
+    List.forallb (fun p => check_type_names all_names resource_names (snd p)) (func_params f) &&
+    List.forallb (check_type_names all_names resource_names) (func_results f))
     (iface_funcs iface).
 
 Definition parse_wit_interface (fuel : nat) : parser wit_interface :=
