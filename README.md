@@ -1,5 +1,7 @@
 WIP formalisation of the Wasm component standard
 
+Most of the code is written by LLMs and is experimental.
+
 ## Usage
 ```
 # build package
