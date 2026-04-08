@@ -5,12 +5,13 @@ Most of the code is written by LLMs and is experimental.
 ## Usage
 ```
 # build package
-nix-build
-# or
 nix build .#wasmcomponents
 
 # enter dev shell
 nix develop
+
+# enter shell with package
+nix develop .#test-shell
 ```
 
 ## Resources (see the repos in the submodules folder)
