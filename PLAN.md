@@ -106,7 +106,7 @@ Create `theories/wit/wit_parser.v` with:
 - Parser combinators following WasmCert style
 
 The parser should be extracted to OCaml via `extraction/extract.v`, with:
-- Scaffolding (dune build files, entry point) to build a standalone OCaml binary
+- Scaffolding (Makefile, entry point) to build a standalone OCaml binary
 - A Python script to run the extracted parser on the `wasm-tools` WIT parser test suite (`crates/wit-parser/tests/`) and compare results
 
 ### 1.3 WIT Printer

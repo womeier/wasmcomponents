@@ -1,3 +1,5 @@
--Q theories wasmcomp_cert
+-Q theories wasmcomponents
 
+theories/wit_ast.v
 theories/Main.v
+theories/wit_parser.v
