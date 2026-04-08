@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 """Test the extracted Rocq WIT parser against the wasm-tools test suite."""
 
+
 import subprocess
+import shutil
 from tqdm import tqdm
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
-PARSER = REPO_ROOT / "src" / "wit_parser_bin"
 WIT_TESTS = REPO_ROOT / "submodules" / "wasm-tools" / "crates" / "wit-parser" / "tests"
+BINARY = "wit_parser_bin"
+PARSER = REPO_ROOT / "src" / BINARY
 
 
 def main():
-    if not PARSER.exists():
+    # Try to use native wit_parser_test binary from PATH first
+    if shutil.which(BINARY):
+        parser_cmd = BINARY
+    elif PARSER.exists():
+        parser_cmd = str(PARSER)
+    else:
         print(f"Error: parser binary not found at {PARSER}")
-        print("Run `make src/wit_parser_bin` first.")
+        print(f"Run `make src/{BINARY}` first.")
+        print("Alternatively, ensure {BINARY} is in your PATH")
         exit(1)
+    
+    print(f"Using parser: {parser_cmd}")
 
     wit_files = sorted(WIT_TESTS.rglob("*.wit"))
     if not wit_files:
@@ -34,7 +45,7 @@ def main():
             if len(below) > 1 and wit.name != "root.wit":
                 continue
         expect_fail = "parse-fail" in parts
-        result = subprocess.run([str(PARSER), str(wit)], capture_output=True)
+        result = subprocess.run([parser_cmd, str(wit)], capture_output=True)
         ok = result.returncode == 0
         if ok != expect_fail:
             correct.append((wit, ok, expect_fail))

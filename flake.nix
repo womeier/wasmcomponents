@@ -88,6 +88,15 @@
             echo "WasmComponents development environment"
           '';
         };
+
+        devShells.test-shell = pkgs.mkShell {
+          name = "wasmcomponents-test";
+          packages = [
+            wasmcomponents
+            pkgs.python3
+            (pkgs.python3.withPackages (ps: [ ps.tqdm ]))
+          ];
+        };
       }
     );
 }
