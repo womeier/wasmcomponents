@@ -3,3 +3,4 @@
 theories/wit_ast.v
 theories/Main.v
 theories/wit_parser.v
+theories/extraction.v

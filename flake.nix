@@ -37,10 +37,21 @@
           version = "dev";
           src = lib.cleanSource self;
 
+          mlPlugin = true;
+
           propagatedBuildInputs = [
             rocqPackages.stdlib
             wasmcert
           ];
+
+          postInstall = ''
+            runHook preInstall
+
+            mkdir -p $out/bin
+            cp wit_parser_bin $out/bin
+
+            runHook postInstall
+          '';
 
           meta = {
             description = "Formalization of the Wasm component standard in Rocq";

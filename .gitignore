@@ -1,3 +1,7 @@
+*.cmi
+*.cmx
+*.o
+
 *.vo
 *.vok
 *.vos
@@ -12,3 +16,6 @@ Makefile.rocq.conf
 .Makefile.rocq.d
 .coqdeps.d
 result
+wit_parser_bin
+
+src/extraction

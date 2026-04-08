@@ -23,6 +23,15 @@ mkRocqDerivation {
     wasmcert
   ];
 
+  postInstall = ''
+    runHook preInstall
+
+    mkdir -p $out/bin
+    cp wit_parser_bin $out/bin
+
+    runHook postInstall
+  '';
+
   releaseRev = v: "v${v}";
 
   meta = {
