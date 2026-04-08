@@ -56,6 +56,9 @@
           installPhase = ''
             runHook preInstall
 
+            OUTDIR=$out/lib/coq/${rocq-core.version}/user-contrib
+            COQLIBINSTALL=$OUTDIR make install
+
             mkdir -p $out/bin
             cp src/wit_parser_bin $out/bin
 
