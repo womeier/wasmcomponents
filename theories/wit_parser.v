@@ -661,6 +661,42 @@ Inductive iface_item :=
   | IItemFunc     : wit_func           -> iface_item
   | IItemResource : string             -> iface_item.
 
+(** [contains_borrow ty] — true if [ty] contains any [WitBorrow]. *)
+Fixpoint contains_borrow (ty : wit_type) : bool :=
+  match ty with
+  | WitBorrow _   => true
+  | WitList t     => contains_borrow t
+  | WitOption t   => contains_borrow t
+  | WitResult ok err =>
+      (match ok  with Some t => contains_borrow t | None => false end) ||
+      (match err with Some t => contains_borrow t | None => false end)
+  | WitTuple ts   => List.existsb contains_borrow ts
+  | WitRecord fs  => List.existsb (fun p => contains_borrow (snd p)) fs
+  | WitVariant cs => List.existsb (fun p =>
+      match snd p with Some t => contains_borrow t | None => false end) cs
+  | WitStream opt => match opt with Some t => contains_borrow t | None => false end
+  | WitFuture opt => match opt with Some t => contains_borrow t | None => false end
+  | _             => false
+  end.
+
+(** [contains_named ty] — true if [ty] contains any [WitNamed] reference. *)
+Fixpoint contains_named (ty : wit_type) : bool :=
+  match ty with
+  | WitNamed _    => true
+  | WitList t     => contains_named t
+  | WitOption t   => contains_named t
+  | WitResult ok err =>
+      (match ok  with Some t => contains_named t | None => false end) ||
+      (match err with Some t => contains_named t | None => false end)
+  | WitTuple ts   => List.existsb contains_named ts
+  | WitRecord fs  => List.existsb (fun p => contains_named (snd p)) fs
+  | WitVariant cs => List.existsb (fun p =>
+      match snd p with Some t => contains_named t | None => false end) cs
+  | WitStream opt => match opt with Some t => contains_named t | None => false end
+  | WitFuture opt => match opt with Some t => contains_named t | None => false end
+  | _             => false
+  end.
+
 (** [parse_resource_method fuel] — parse one method item inside a resource
     body: [constructor(params);] or [name: [static] [async] func(...) -> ...;]. *)
 Definition parse_resource_method (fuel : nat) : parser unit :=
@@ -670,35 +706,53 @@ Definition parse_resource_method (fuel : nat) : parser unit :=
    tok_exact TokSemicolon *>
    p_return tt)
   <|>
-  (* name: [static] [async] func(...) -> ...; *)
+  (* name: [static] [async] func(...) -> ...; — cannot return a borrow *)
   (tok_ident *>
    tok_exact TokColon *>
    p_option (tok_keyword "static") *>
    p_option (tok_keyword "async") *>
    tok_keyword "func" *>
    parse_params fuel *>
-   parse_results fuel *>
+   parse_results fuel >>= (fun results =>
    tok_exact TokSemicolon *>
-   p_return tt).
+   if negb (List.existsb contains_borrow results)
+   then p_return tt
+   else p_fail)).
 
-(** [parse_resource_body fuel ctor_seen ts] — parse zero or more resource
-    method items, failing if a second [constructor] is encountered. *)
-Fixpoint parse_resource_body (fuel : nat) (ctor_seen : bool) (ts : list wit_token)
-    : option (unit * list wit_token) :=
+(** [parse_resource_body fuel ctor_seen method_names ts] — parse zero or more
+    resource method items, failing on duplicate constructor or duplicate
+    method name. *)
+Fixpoint parse_resource_body (fuel : nat) (ctor_seen : bool) (method_names : list string)
+    (ts : list wit_token) : option (unit * list wit_token) :=
   match fuel with
   | O => Some (tt, ts)
   | S fuel' =>
-      (* Peek: if next token is "constructor", check for duplicate *)
       let is_ctor := match ts with
                      | TokIdent s :: _ => String.eqb s "constructor"
                      | _ => false
                      end in
-      if is_ctor && ctor_seen then None   (* duplicate constructor *)
+      let mname_opt := match ts with
+                       | TokIdent s :: TokColon :: _ =>
+                           if String.eqb s "constructor" then None else Some s
+                       | _ => None
+                       end in
+      if is_ctor && ctor_seen then None
       else
-        match parse_resource_method fuel' ts with
-        | None => Some (tt, ts)
-        | Some (_, ts') =>
-            parse_resource_body fuel' (ctor_seen || is_ctor) ts'
+        match mname_opt with
+        | Some n =>
+            if List.existsb (String.eqb n) method_names then None
+            else
+              match parse_resource_method fuel' ts with
+              | None => Some (tt, ts)
+              | Some (_, ts') =>
+                  parse_resource_body fuel' false (n :: method_names) ts'
+              end
+        | None =>
+            match parse_resource_method fuel' ts with
+            | None => Some (tt, ts)
+            | Some (_, ts') =>
+                parse_resource_body fuel' (ctor_seen || is_ctor) method_names ts'
+            end
         end
   end.
 
@@ -710,7 +764,7 @@ Definition parse_resource_decl (fuel : nat) : parser string :=
   <|>
   (* brace body *)
   (tok_exact TokLBrace *>
-   (fun ts => parse_resource_body (List.length ts + 1) false ts) *>
+   (fun ts => parse_resource_body (List.length ts + 1) false [] ts) *>
    tok_exact TokRBrace *>
    p_return name)).
 
@@ -758,6 +812,67 @@ Definition collect_iface_items (items : list iface_item)
     ([], [], [])
     items.
 
+(** [has_duplicates xs] — true iff [xs] contains any duplicate string. *)
+Fixpoint has_duplicates (xs : list string) : bool :=
+  match xs with
+  | [] => false
+  | x :: rest => List.existsb (String.eqb x) rest || has_duplicates rest
+  end.
+
+(** [named_refs ty] — list of all [WitNamed] names directly referenced. *)
+Fixpoint named_refs (ty : wit_type) : list string :=
+  match ty with
+  | WitNamed n    => [n]
+  | WitList t     => named_refs t
+  | WitOption t   => named_refs t
+  | WitResult ok err =>
+      List.app
+        (match ok  with Some t => named_refs t | None => [] end)
+        (match err with Some t => named_refs t | None => [] end)
+  | WitTuple ts   => List.fold_right (fun t acc => List.app (named_refs t) acc) [] ts
+  | WitRecord fs  => List.fold_right (fun p acc => List.app (named_refs (snd p)) acc) [] fs
+  | WitVariant cs => List.fold_right (fun p acc =>
+      List.app (match snd p with Some t => named_refs t | None => [] end) acc) [] cs
+  | WitStream opt => match opt with Some t => named_refs t | None => [] end
+  | WitFuture opt => match opt with Some t => named_refs t | None => [] end
+  | _             => []
+  end.
+
+(** [cycle_check fuel aliases path name] — DFS: returns true if following
+    [WitNamed] edges from [name] revisits a node in [path]. *)
+Fixpoint cycle_check (fuel : nat) (aliases : list (string * wit_type))
+    (path : list string) (name : string) : bool :=
+  match fuel with
+  | O => false
+  | S fuel' =>
+      if List.existsb (String.eqb name) path then true
+      else
+        match List.find (fun p => String.eqb (fst p) name) aliases with
+        | None   => false
+        | Some p =>
+            List.existsb (cycle_check fuel' aliases (name :: path)) (named_refs (snd p))
+        end
+  end.
+
+Definition has_type_cycle (aliases : list (string * wit_type)) : bool :=
+  List.existsb
+    (fun p => cycle_check (List.length aliases * List.length aliases + 1) aliases [] (fst p))
+    aliases.
+
+(** Case-insensitive duplicate detection for kebab-case identifiers. *)
+Definition ascii_to_lower (c : ascii) : ascii :=
+  let n := nat_of_ascii c in
+  if Nat.leb 65 n && Nat.leb n 90 then ascii_of_nat (n + 32) else c.
+
+Fixpoint str_to_lower (s : string) : string :=
+  match s with
+  | EmptyString   => EmptyString
+  | String c rest => String (ascii_to_lower c) (str_to_lower rest)
+  end.
+
+Definition has_dup_ci (xs : list string) : bool :=
+  has_duplicates (List.map str_to_lower xs).
+
 (** [check_type_names all_names resource_names ty] — true iff every
     [WitNamed] reference is in [all_names] and every [WitOwn]/[WitBorrow]
     reference is in [resource_names] (resources only, not type aliases). *)
@@ -783,15 +898,19 @@ Fixpoint check_type_names (all_names resource_names : list string) (ty : wit_typ
   | WitNamed name    => List.existsb (String.eqb name) all_names
   end.
 
-(** [validate_iface iface] — reject interfaces where type aliases or
-    function signatures reference undefined names. *)
+(** [validate_iface iface] — reject interfaces that violate WIT rules. *)
 Definition validate_iface (iface : wit_interface) : bool :=
-  let all_names    := List.app (List.map fst (iface_types iface)) (iface_resources iface) in
+  let all_names      := List.app (List.map fst (iface_types iface)) (iface_resources iface) in
   let resource_names := iface_resources iface in
+  negb (has_duplicates (List.map fst (iface_types iface))) &&
+  negb (has_duplicates (List.map func_name (iface_funcs iface))) &&
+  negb (has_type_cycle (iface_types iface)) &&
   List.forallb (fun p => check_type_names all_names resource_names (snd p)) (iface_types iface) &&
   List.forallb (fun f =>
+    negb (has_duplicates (List.map fst (func_params f))) &&
     List.forallb (fun p => check_type_names all_names resource_names (snd p)) (func_params f) &&
-    List.forallb (check_type_names all_names resource_names) (func_results f))
+    List.forallb (check_type_names all_names resource_names) (func_results f) &&
+    negb (List.existsb contains_borrow (func_results f)))
     (iface_funcs iface).
 
 Definition parse_wit_interface (fuel : nat) : parser wit_interface :=
@@ -849,7 +968,8 @@ Definition parse_world_inline_item (fuel : nat) (kw : string)
   p_return (mk name iface))).
 
 (** [parse_world_func_item fuel kw mk] — parse
-    [import|export name: [async] func(...) -> ...;]. *)
+    [import|export name: [async] func(...) -> ...;].
+    Rejects any WitNamed references since worlds have no type namespace. *)
 Definition parse_world_func_item (fuel : nat) (kw : string)
     (mk : string -> wit_interface -> world_item) : parser world_item :=
   tok_keyword kw *>
@@ -857,10 +977,13 @@ Definition parse_world_func_item (fuel : nat) (kw : string)
   tok_exact TokColon *>
   p_option (tok_keyword "async") *>
   tok_keyword "func" *>
-  parse_params fuel *>
-  parse_results fuel *>
+  parse_params fuel >>= (fun params =>
+  parse_results fuel >>= (fun results =>
   tok_exact TokSemicolon *>
-  p_return (mk name (stub_iface name))).
+  if List.forallb (fun p => negb (contains_named (snd p))) params &&
+     List.forallb (fun t => negb (contains_named t)) results
+  then p_return (mk name (stub_iface name))
+  else p_fail))).
 
 Definition parse_world_item (fuel : nat) : parser world_item :=
   parse_world_func_item fuel "import" WItemImport
@@ -906,12 +1029,6 @@ Definition collect_world_items (items : list world_item)
 
     Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
     Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#worlds *)
-(** [has_duplicates xs] — true iff [xs] contains any duplicate string. *)
-Fixpoint has_duplicates (xs : list string) : bool :=
-  match xs with
-  | [] => false
-  | x :: rest => List.existsb (String.eqb x) rest || has_duplicates rest
-  end.
 
 Definition parse_wit_world (fuel : nat) : parser wit_world :=
   tok_keyword "world" *>
@@ -1016,10 +1133,41 @@ Definition collect_top_items (items : list top_item)
     ([], [])
     items.
 
+(** [is_ref_import w] — true if the import uses bare [import name;] syntax,
+    indicated by the import name matching the stub iface name with no items. *)
+Definition is_ref_import (p : string * wit_interface) : bool :=
+  let iface := snd p in
+  match iface_types iface, iface_funcs iface, iface_resources iface with
+  | [], [], [] => String.eqb (fst p) (iface_name iface)
+  | _, _, _ => false
+  end.
+
+(** [validate_package pkg] — reject packages with duplicate names,
+    interface/world clashes, or worlds that import undefined interfaces. *)
+Definition validate_package (pkg : wit_package) : bool :=
+  let iface_names := List.map iface_name (pkg_interfaces pkg) in
+  let world_names := List.map world_name (pkg_worlds pkg) in
+  let all_top_names := List.app iface_names world_names in
+  negb (has_duplicates iface_names) &&
+  negb (has_duplicates world_names) &&
+  negb (has_duplicates all_top_names) &&
+  List.forallb (fun w =>
+    let import_names := List.map fst (world_imports w) in
+    let export_names := List.map fst (world_exports w) in
+    negb (has_dup_ci import_names) &&
+    negb (has_dup_ci export_names) &&
+    (* bare import name; must name a defined interface *)
+    List.forallb (fun p =>
+      if is_ref_import p
+      then List.existsb (String.eqb (fst p)) iface_names
+      else true)
+      (world_imports w))
+    (pkg_worlds pkg).
+
 (** [parse_wit_package fuel] — parse a complete WIT document.
 
     Rust: https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs
-    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#packages *)
+    Spec: https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54comp4f62de4fa5c9/design/mvp/WIT.md#packages *)
 Definition parse_wit_package (fuel : nat) : parser wit_package :=
   parse_package_header >>= (fun '(ns, name, ver) =>
   (fun ts =>
@@ -1029,11 +1177,12 @@ Definition parse_wit_package (fuel : nat) : parser wit_package :=
          parse_top_items (List.length ts + 1) (parse_top_item fuel') ts
      end) >>= (fun items =>
   (let '(ifaces, worlds) := collect_top_items items in
-   p_return {| pkg_namespace  := ns;
-               pkg_name       := name;
-               pkg_version    := ver;
-               pkg_interfaces := ifaces;
-               pkg_worlds     := worlds |}))).
+   let pkg := {| pkg_namespace  := ns;
+                 pkg_name       := name;
+                 pkg_version    := ver;
+                 pkg_interfaces := ifaces;
+                 pkg_worlds     := worlds |} in
+   if validate_package pkg then p_return pkg else p_fail))).
 
 (** [parse_wit fuel s] — lex [s] then parse it as a WIT package.
 

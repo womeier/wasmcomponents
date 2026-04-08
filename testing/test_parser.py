@@ -25,11 +25,14 @@ def main():
     incorrect = []
 
     for wit in tqdm(wit_files):
-        # Dependency files inside parse-fail scenarios are only meaningful in
-        # multi-file context; skip them to avoid false expectations.
+        # Files in subdirectories of parse-fail are multi-file test scenarios.
+        # Only test the root file of each scenario; skip everything else.
         parts = wit.parts
-        if "parse-fail" in parts and "deps" in parts:
-            continue
+        if "parse-fail" in parts:
+            pf_idx = parts.index("parse-fail")
+            below = parts[pf_idx + 1:]
+            if len(below) > 1 and wit.name != "root.wit":
+                continue
         expect_fail = "parse-fail" in parts
         result = subprocess.run([str(PARSER), str(wit)], capture_output=True)
         ok = result.returncode == 0
