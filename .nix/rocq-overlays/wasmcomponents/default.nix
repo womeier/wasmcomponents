@@ -16,6 +16,8 @@ mkRocqDerivation {
   inherit version;
   defaultVersion = "0.0.1";
 
+  mlPlugin = true;
+
   propagatedBuildInputs = [
     stdlib
     wasmcert

@@ -25,10 +25,11 @@
 
         rocqPackages = pkgs.rocqPackages_9_1;
         coqPackages = pkgs.coqPackages_9_1;
-
         rocq-core = rocqPackages.rocq-core;
-        wasmcert = coqPackages.wasmcert;
+        ocaml = rocq-core.ocamlPackages.ocaml;
         vsrocq-language-server = rocqPackages.vsrocq-language-server;
+
+        wasmcert = coqPackages.wasmcert;
 
         # Build wasmcomponents package, copy-pasted from nix toolbox for now
         wasmcomponents = rocqPackages.mkRocqDerivation {
@@ -58,6 +59,7 @@
             rocq-core
             wasmcert
             vsrocq-language-server
+            ocaml
           ];
           shellHook = ''
             echo "WasmComponents development environment"
