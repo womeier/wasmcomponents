@@ -26,6 +26,7 @@ src/wit_parser_bin: src/extraction src/main.ml
 		BinNat.mli BinNat.ml \
 		Ascii.mli Ascii.ml \
 		String.mli String.ml \
+		ListDef.mli ListDef.ml \
 		List.mli List.ml \
 		wit_ast.mli wit_ast.ml \
 		wit_parser.mli wit_parser.ml
@@ -40,6 +41,7 @@ src/wit_parser_bin: src/extraction src/main.ml
 		src/extraction/BinNat.cmx \
 		src/extraction/Ascii.cmx \
 		src/extraction/String.cmx \
+		src/extraction/ListDef.cmx \
 		src/extraction/List.cmx \
 		src/extraction/wit_ast.cmx \
 		src/extraction/wit_parser.cmx \

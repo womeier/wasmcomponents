@@ -711,6 +711,40 @@ Definition collect_iface_items (items : list iface_item)
     ([], [], [])
     items.
 
+(** [check_type_names defined ty] — true iff every [WitNamed], [WitOwn],
+    and [WitBorrow] reference inside [ty] appears in [defined]. *)
+Fixpoint check_type_names (defined : list string) (ty : wit_type) : bool :=
+  match ty with
+  | WitPrim _        => true
+  | WitList t        => check_type_names defined t
+  | WitOption t      => check_type_names defined t
+  | WitResult ok err =>
+      (match ok  with Some t => check_type_names defined t | None => true end) &&
+      (match err with Some t => check_type_names defined t | None => true end)
+  | WitTuple ts      => List.forallb (check_type_names defined) ts
+  | WitRecord fields => List.forallb (fun '(_, t) => check_type_names defined t) fields
+  | WitVariant cases => List.forallb (fun '(_, opt) =>
+      match opt with Some t => check_type_names defined t | None => true end) cases
+  | WitEnum _        => true
+  | WitFlags _       => true
+  | WitResource _    => true
+  | WitOwn   name    => List.existsb (String.eqb name) defined
+  | WitBorrow name   => List.existsb (String.eqb name) defined
+  | WitStream opt    => match opt with Some t => check_type_names defined t | None => true end
+  | WitFuture opt    => match opt with Some t => check_type_names defined t | None => true end
+  | WitNamed name    => List.existsb (String.eqb name) defined
+  end.
+
+(** [validate_iface iface] — reject interfaces where type aliases or
+    function signatures reference undefined names. *)
+Definition validate_iface (iface : wit_interface) : bool :=
+  let defined := List.app (List.map fst (iface_types iface)) (iface_resources iface) in
+  List.forallb (fun p => check_type_names defined (snd p)) (iface_types iface) &&
+  List.forallb (fun f =>
+    List.forallb (fun p => check_type_names defined (snd p)) (func_params f) &&
+    List.forallb (check_type_names defined) (func_results f))
+    (iface_funcs iface).
+
 Definition parse_wit_interface (fuel : nat) : parser wit_interface :=
   tok_keyword "interface" *>
   tok_ident >>= (fun name =>
@@ -723,10 +757,11 @@ Definition parse_wit_interface (fuel : nat) : parser wit_interface :=
      end) >>= (fun items =>
   tok_exact TokRBrace *>
   (let '(types, funcs, resources) := collect_iface_items items in
-   p_return {| iface_name      := name;
-               iface_types     := types;
-               iface_funcs     := funcs;
-               iface_resources := resources |}))).
+   let iface := {| iface_name      := name;
+                   iface_types     := types;
+                   iface_funcs     := funcs;
+                   iface_resources := resources |} in
+   if validate_iface iface then p_return iface else p_fail))).
 
 (** *** World items
 
@@ -934,6 +969,10 @@ Definition parse_wit (fuel : nat) (s : string) : option wit_package :=
   | Some ts =>
       match parse_wit_package fuel ts with
       | None => None
-      | Some (pkg, _) => Some pkg
+      | Some (pkg, remaining) =>
+          match remaining with
+          | [] => Some pkg
+          | _  => None
+          end
       end
   end.
