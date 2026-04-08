@@ -25,7 +25,12 @@ def main():
     incorrect = []
 
     for wit in tqdm(wit_files):
-        expect_fail = "parse-fail" in wit.parts
+        # Dependency files inside parse-fail scenarios are only meaningful in
+        # multi-file context; skip them to avoid false expectations.
+        parts = wit.parts
+        if "parse-fail" in parts and "deps" in parts:
+            continue
+        expect_fail = "parse-fail" in parts
         result = subprocess.run([str(PARSER), str(wit)], capture_output=True)
         ok = result.returncode == 0
         if ok != expect_fail:
