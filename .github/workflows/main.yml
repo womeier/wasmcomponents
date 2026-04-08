@@ -7,6 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+          fetch-depth: 1
 
       # Install Nix
       - uses: cachix/install-nix-action@v31
@@ -21,7 +24,7 @@ jobs:
 
       - name: Build
         run: |
-          nix build .#wasmcomponents
+          nix build --no-link --print-out-paths | cachix push womeier
 
       - name: Run test
         run: |
