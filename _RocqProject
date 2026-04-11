@@ -3,5 +3,7 @@
 theories/wit_ast.v
 theories/component_ast.v
 theories/wit_parser.v
+theories/component_binary_parser.v
+theories/component_binary_parser_tests.v
 theories/extraction.v
 
