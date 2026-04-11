@@ -93,6 +93,7 @@
           name = "wasmcomponents-test";
           packages = [
             wasmcomponents
+            pkgs.wasm-tools
             pkgs.python3
             (pkgs.python3.withPackages (ps: [ ps.tqdm ]))
           ];

@@ -20,3 +20,4 @@ wit_parser_bin
 
 src/extraction
 docs
+__pycache__

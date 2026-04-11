@@ -17,36 +17,18 @@ src/extraction: rocq
 	make -f $(ROCQMAKEFILE)
 
 src/wit_parser_bin: src/extraction src/main.ml
-	cd src/extraction && ocamlopt \
-		BinNums.mli BinNums.ml \
-		Datatypes.mli Datatypes.ml \
-		Nat.mli Nat.ml \
-		BinPos.mli BinPos.ml \
-		PosDef.mli PosDef.ml \
-		BinNat.mli BinNat.ml \
-		Ascii.mli Ascii.ml \
-		String.mli String.ml \
-		ListDef.mli ListDef.ml \
-		List.mli List.ml \
-		wit_ast.mli wit_ast.ml \
-		wit_parser.mli wit_parser.ml
-
+	MODULES="$$(cd src/extraction && ocamldep -sort -one-line *.mli)"; \
+	cd src/extraction && \
+		ocamlopt $$(for mod in $$MODULES; do mod=$${mod%.mli}; printf '%s.mli %s.ml ' "$$mod" "$$mod"; done) && \
+	cd ../.. && \
 	ocamlopt \
 		-I src/extraction \
-		src/extraction/BinNums.cmx \
-		src/extraction/Datatypes.cmx \
-		src/extraction/Nat.cmx \
-		src/extraction/BinPos.cmx \
-		src/extraction/PosDef.cmx \
-		src/extraction/BinNat.cmx \
-		src/extraction/Ascii.cmx \
-		src/extraction/String.cmx \
-		src/extraction/ListDef.cmx \
-		src/extraction/List.cmx \
-		src/extraction/wit_ast.cmx \
-		src/extraction/wit_parser.cmx \
+		$$(for mod in $$MODULES; do mod=$${mod%.mli}; printf 'src/extraction/%s.cmx ' "$$mod"; done) \
 		src/main.ml \
 		-o src/wit_parser_bin
+
+
+
 
 clean: $(ROCQMAKEFILE)
 	$(MAKE) -f $(ROCQMAKEFILE) clean
@@ -73,4 +55,7 @@ docs-run:
 run_tests: src/wit_parser_bin
 	python3 testing/test_parser.py
 
-.PHONY: all rocq clean install docs run_tests
+run_tests_components: src/wit_parser_bin
+	python3 testing/test_component_parser.py
+
+.PHONY: all rocq clean install docs run_tests run_tests_components

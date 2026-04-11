@@ -16,12 +16,16 @@ let char_list_to_string cl =
 let read_file filename =
   In_channel.with_open_text filename In_channel.input_all
 
-let () =
-  if Array.length Sys.argv < 2 then (
-    Printf.eprintf "Usage: %s <file.wit>\n" Sys.argv.(0);
-    exit 1
-  );
-  let filename = Sys.argv.(1) in
+let read_binary_file filename =
+  In_channel.with_open_bin filename (fun ch ->
+    let len = in_channel_length ch in
+    really_input_string ch len
+  )
+
+let print_wit_usage executable =
+  Printf.eprintf "Usage: %s [--component] <file>\n" executable
+
+let parse_wit_file filename =
   let input = read_file filename in
   let fuel = 10000 in
   match Wit_parser.parse_wit fuel (string_to_char_list input) with
@@ -37,3 +41,35 @@ let () =
        | Some v -> Printf.printf "  Version:    %s\n" (char_list_to_string v));
       Printf.printf "  Interfaces: %d\n" (List.length pkg.Wit_ast.pkg_interfaces);
       Printf.printf "  Worlds:     %d\n" (List.length pkg.Wit_ast.pkg_worlds)
+
+let parse_component_file filename =
+  let input = read_binary_file filename in
+  let chars = string_to_char_list input in
+  if Extraction.parse_component_ok chars then
+    Printf.printf "Successfully parsed component binary\n"
+  else
+    match Extraction.parse_component_error chars with
+  | None ->
+      Printf.printf "Parse error\n";
+      exit 1
+  | Some err ->
+      Printf.printf "Parse error: %s\n" (char_list_to_string err);
+      exit 1
+
+
+let () =
+  if Array.length Sys.argv < 2 || Array.length Sys.argv > 3 then (
+    print_wit_usage Sys.argv.(0);
+    exit 1
+  );
+  let parse_component,
+      filename =
+    if Array.length Sys.argv = 3 && Sys.argv.(1) = "--component" then
+      true, Sys.argv.(2)
+    else
+      false, Sys.argv.(1)
+  in
+  if parse_component then
+    parse_component_file filename
+  else
+    parse_wit_file filename

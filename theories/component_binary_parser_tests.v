@@ -66,6 +66,44 @@ Proof. vm_compute. reflexivity. Qed.
 
 Definition cbp_core_module_section : list byte := mk_section (Byte.repr 1) (List.map compcert_byte_of_byte (binary_of_module cbp_empty_module)).
 
+Definition cbp_start_payload : list byte := List.map compcert_byte_of_byte (binary_of_module_start {| modstart_func := 0 |}).
+Definition cbp_start_section : list byte := mk_section (Byte.repr 9) cbp_start_payload.
+
+Lemma parse_duplicate_start_section :
+  run_parse_component (cbp_preamble ++ cbp_start_section ++ cbp_start_section)
+    = inr "duplicate section 09 (start)".
+Proof. vm_compute. reflexivity. Qed.
+
+Definition cbp_malformed_core_module_payload : list byte := Byte.repr 128 :: nil.
+Definition cbp_malformed_core_module_section : list byte := mk_section (Byte.repr 1) cbp_malformed_core_module_payload.
+
+Lemma parse_malformed_core_module_payload :
+  run_parse_component (cbp_preamble ++ cbp_malformed_core_module_section)
+    = inr "malformed payload in section 1 (core_module)".
+Proof. vm_compute. reflexivity. Qed.
+
+Definition cbp_malformed_import_payload : list byte := Byte.repr 1 :: nil.
+Definition cbp_malformed_import_section : list byte := mk_section (Byte.repr 10) cbp_malformed_import_payload.
+
+Definition cbp_malformed_export_payload : list byte := Byte.repr 1 :: nil.
+Definition cbp_malformed_export_section : list byte := mk_section (Byte.repr 11) cbp_malformed_export_payload.
+
+Lemma parse_malformed_import_payload :
+  run_parse_component (cbp_preamble ++ cbp_malformed_import_section)
+    = inr "malformed payload in section 10 (import)".
+Proof. vm_compute. reflexivity. Qed.
+
+Lemma parse_malformed_export_payload :
+  run_parse_component (cbp_preamble ++ cbp_malformed_export_section)
+    = inr "malformed payload in section 11 (export)".
+Proof. vm_compute. reflexivity. Qed.
+
+Definition cbp_preamble_string : String.string := String.string_of_list_byte (List.map byte_of_compcert_byte cbp_preamble).
+
+Lemma parse_preamble_string :
+  run_parse_component_str cbp_preamble_string = inl cbp_empty_component.
+Proof. vm_compute. reflexivity. Qed.
+
 Lemma parse_core_module_section :
   run_parse_component (cbp_preamble ++ cbp_core_module_section) = inl cbp_empty_module_component.
 Proof. vm_compute. reflexivity. Qed.
