@@ -1,6 +1,7 @@
 -Q theories wasmcomponents
 
 theories/wit_ast.v
-theories/Main.v
+theories/component_ast.v
 theories/wit_parser.v
 theories/extraction.v
+
