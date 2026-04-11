@@ -16,7 +16,7 @@ Makefile.rocq.conf
 .Makefile.rocq.d
 .coqdeps.d
 result
-wit_parser_bin
+wc-tools
 
 src/extraction
 docs

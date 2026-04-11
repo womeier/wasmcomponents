@@ -16,7 +16,7 @@ src/extraction: rocq
 	rm -rf src/extraction theories/extraction theories/extraction.vo
 	make -f $(ROCQMAKEFILE)
 
-src/wit_parser_bin: src/extraction src/main.ml
+src/wc-tools: src/extraction src/main.ml
 	MODULES="$$(cd src/extraction && ocamldep -sort -one-line *.mli)"; \
 	cd src/extraction && \
 		ocamlopt $$(for mod in $$MODULES; do mod=$${mod%.mli}; printf '%s.mli %s.ml ' "$$mod" "$$mod"; done) && \
@@ -25,7 +25,7 @@ src/wit_parser_bin: src/extraction src/main.ml
 		-I src/extraction \
 		$$(for mod in $$MODULES; do mod=$${mod%.mli}; printf 'src/extraction/%s.cmx ' "$$mod"; done) \
 		src/main.ml \
-		-o src/wit_parser_bin
+		-o src/wc-tools
 
 
 
@@ -34,7 +34,7 @@ clean: $(ROCQMAKEFILE)
 	$(MAKE) -f $(ROCQMAKEFILE) clean
 	rm -f $(ROCQMAKEFILE) $(ROCQMAKEFILE).conf
 	rm -rf src/extraction docs
-	rm -f wit_parser_bin
+	rm -f wc-tools src/wc-tools
 	find src -name "*.cmi" -delete
 	find src -name "*.cmx" -delete
 	find src -name "*.o" -delete
@@ -52,10 +52,10 @@ docs: rocq
 docs-run:
 	cd docs && python3 -m http.server -b 127.0.0.1
 
-run_tests: src/wit_parser_bin
+run_tests: src/wc-tools
 	python3 testing/test_parser.py
 
-run_tests_components: src/wit_parser_bin
+run_tests_components: src/wc-tools
 	python3 testing/test_component_parser.py
 
 .PHONY: all rocq clean install docs run_tests run_tests_components

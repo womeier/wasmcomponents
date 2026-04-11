@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Test the extracted Rocq WIT parser against the wasm-tools test suite."""
 
-
 import subprocess
 import shutil
 from tqdm import tqdm
@@ -9,7 +8,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 WIT_TESTS = REPO_ROOT / "submodules" / "wasm-tools" / "crates" / "wit-parser" / "tests"
-BINARY = "wit_parser_bin"
+BINARY = "wc-tools"
 PARSER = REPO_ROOT / "src" / BINARY
 
 
@@ -24,7 +23,7 @@ def main():
         print(f"Run `make src/{BINARY}` first.")
         print("Alternatively, ensure {BINARY} is in your PATH")
         exit(1)
-    
+
     print(f"Using parser: {parser_cmd}")
 
     wit_files = sorted(WIT_TESTS.rglob("*.wit"))
@@ -41,7 +40,7 @@ def main():
         parts = wit.parts
         if "parse-fail" in parts:
             pf_idx = parts.index("parse-fail")
-            below = parts[pf_idx + 1:]
+            below = parts[pf_idx + 1 :]
             if len(below) > 1 and wit.name != "root.wit":
                 continue
         expect_fail = "parse-fail" in parts

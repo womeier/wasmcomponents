@@ -47,7 +47,7 @@
             runHook preBuild
 
             make
-            make src/wit_parser_bin
+            make src/wc-tools
 
             runHook postBuild
           '';
@@ -59,7 +59,7 @@
             COQLIBINSTALL=$OUTDIR make install
 
             mkdir -p $out/bin
-            cp src/wit_parser_bin $out/bin
+            cp src/wc-tools $out/bin
 
             runHook postInstall
           '';
@@ -79,6 +79,7 @@
           name = "wasmcomponents";
           packages = [
             rocq-core
+            coqPackages.wasmcert
             vsrocq-language-server
             ocaml
           ];

@@ -18,7 +18,7 @@ WIT_COMPONENT_TESTS = (
     / "tests"
     / "components"
 )
-BINARY = "wit_parser_bin"
+BINARY = "wc-tools"
 WASM_TOOLS = "wasm-tools"
 PARSER = REPO_ROOT / "src" / BINARY
 
@@ -99,7 +99,6 @@ def main():
                 correct.append((wat_file, ok, expect_fail))
             else:
                 incorrect.append((wat_file, ok, expect_fail))
-
 
     total = len(test_plan)
     pct = 100 * len(correct) / total
