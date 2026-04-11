@@ -45,14 +45,10 @@ let parse_wit_file filename =
 let parse_component_file filename =
   let input = read_binary_file filename in
   let chars = string_to_char_list input in
-  if Extraction.parse_component_ok chars then
-    Printf.printf "Successfully parsed component binary\n"
-  else
-    match Extraction.parse_component_error chars with
-  | None ->
-      Printf.printf "Parse error\n";
-      exit 1
-  | Some err ->
+  match Component_binary_parser.run_parse_component_str chars with
+  | Datatypes.Coq_inl _ ->
+      Printf.printf "Successfully parsed component binary\n"
+  | Datatypes.Coq_inr err ->
       Printf.printf "Parse error: %s\n" (char_list_to_string err);
       exit 1
 
