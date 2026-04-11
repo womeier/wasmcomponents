@@ -6,10 +6,11 @@
     Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/ast.rs}}
     Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md}} *)
 
-From Stdlib Require Import Ascii String List Bool.
+From Stdlib Require Import Ascii String List Bool NArith.
 Import ListNotations.
 From wasmcomponents Require Import wit_ast.
 
+Open Scope N_scope.
 Open Scope string_scope.
 
 (* ================================================================= *)
@@ -38,16 +39,16 @@ Inductive wit_token :=
 
     Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Definition is_alpha (c : ascii) : bool :=
-  let n := nat_of_ascii c in
-  (Nat.leb 65 n && Nat.leb n 90) ||   (* A-Z *)
-  (Nat.leb 97 n && Nat.leb n 122).    (* a-z *)
+  let n := N_of_ascii c in
+  (N.leb 65 n && N.leb n 90) ||   (* A-Z *)
+  (N.leb 97 n && N.leb n 122).    (* a-z *)
 
 (** [is_digit c] — true if [c] is an ASCII decimal digit.
 
     Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
 Definition is_digit (c : ascii) : bool :=
-  let n := nat_of_ascii c in
-  Nat.leb 48 n && Nat.leb n 57.       (* 0-9 *)
+  let n := N_of_ascii c in
+  N.leb 48 n && N.leb n 57.       (* 0-9 *)
 
 (** [is_ident_cont c] — true for characters that may appear after the
     first character of a WIT identifier (alpha, digit, [-], [_]).
@@ -100,15 +101,15 @@ Fixpoint skip_line (cs : list ascii) : list ascii :=
     [fuel] for termination.
 
     Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-parser/src/token.rs}} *)
-Fixpoint skip_block (fuel : nat) (depth : nat) (cs : list ascii)
+Fixpoint skip_block (fuel : nat) (depth : N) (cs : list ascii)
     : option (list ascii) :=
   match fuel with
   | O => None
   | S fuel' =>
       match cs with
-      | [] => if Nat.eqb depth 0 then Some [] else None
+      | [] => if N.eqb depth 0 then Some [] else None
       | "*"%char :: "/"%char :: rest =>
-          if Nat.eqb depth 1
+          if N.eqb depth 1
           then Some rest
           else skip_block fuel' (depth - 1) rest
       | "/"%char :: "*"%char :: rest =>
@@ -145,7 +146,7 @@ Fixpoint tokenize (fuel : nat) (cs : list ascii) (acc : list wit_token)
 
           (* block comment *)
           | "/"%char :: "*"%char :: rest2 =>
-              match skip_block (List.length rest2 + 1) 1 rest2 with
+              match skip_block (List.length rest2 + 1)%nat 1 rest2 with
               | None => None
               | Some rest3 => tokenize fuel' rest3 acc
               end
@@ -198,7 +199,7 @@ Fixpoint tokenize (fuel : nat) (cs : list ascii) (acc : list wit_token)
     Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/WIT.md#lexical-structure}} *)
 Definition lex (s : string) : option (list wit_token) :=
   let cs := list_ascii_of_string s in
-  let fuel := List.length cs * 2 + 1 in
+  let fuel := (List.length cs * 2 + 1)%nat in
   tokenize fuel cs [].
 
 (* ================================================================= *)
@@ -359,7 +360,7 @@ Fixpoint p_sep_by_fuel {A : Type} (fuel : nat)
 Definition p_sep_by {A : Type} (sep : parser unit) (p : parser A)
     : parser (list A) :=
   fun ts =>
-    p_sep_by_fuel (List.length ts + 1) sep p ts.
+    p_sep_by_fuel (List.length ts + 1)%nat sep p ts.
 
 (* ================================================================= *)
 (** ** 3. Grammar Productions                                          *)
@@ -764,7 +765,7 @@ Definition parse_resource_decl (fuel : nat) : parser string :=
   <|>
   (* brace body *)
   (tok_exact TokLBrace *>
-   (fun ts => parse_resource_body (List.length ts + 1) false [] ts) *>
+   (fun ts => parse_resource_body (List.length ts + 1)%nat false [] ts) *>
    tok_exact TokRBrace *>
    p_return name)).
 
@@ -856,13 +857,13 @@ Fixpoint cycle_check (fuel : nat) (aliases : list (string * wit_type))
 
 Definition has_type_cycle (aliases : list (string * wit_type)) : bool :=
   List.existsb
-    (fun p => cycle_check (List.length aliases * List.length aliases + 1) aliases [] (fst p))
+    (fun p => cycle_check (List.length aliases * List.length aliases + 1)%nat aliases [] (fst p))
     aliases.
 
 (** Case-insensitive duplicate detection for kebab-case identifiers. *)
 Definition ascii_to_lower (c : ascii) : ascii :=
-  let n := nat_of_ascii c in
-  if Nat.leb 65 n && Nat.leb n 90 then ascii_of_nat (n + 32) else c.
+  let n := N_of_ascii c in
+  if N.leb 65 n && N.leb n 90 then ascii_of_N (n + 32) else c.
 
 Fixpoint str_to_lower (s : string) : string :=
   match s with
@@ -921,7 +922,7 @@ Definition parse_wit_interface (fuel : nat) : parser wit_interface :=
      match fuel with
      | O => None
      | S fuel' =>
-         parse_iface_items (List.length ts + 1) (parse_iface_item fuel') ts
+         parse_iface_items (List.length ts + 1)%nat (parse_iface_item fuel') ts
      end) >>= (fun items =>
   tok_exact TokRBrace *>
   (let '(types, funcs, resources) := collect_iface_items items in
@@ -1038,7 +1039,7 @@ Definition parse_wit_world (fuel : nat) : parser wit_world :=
      match fuel with
      | O => None
      | S fuel' =>
-         parse_world_items (List.length ts + 1) (parse_world_item fuel') ts
+         parse_world_items (List.length ts + 1)%nat (parse_world_item fuel') ts
      end) >>= (fun items =>
   tok_exact TokRBrace *>
   (let '(imports, exports) := collect_world_items items in
@@ -1085,7 +1086,7 @@ Definition parse_package_header : parser (string * string * option string) :=
   p_option (
     tok_exact TokAt *>
     (fun ts =>
-       let '(v, ts') := parse_version_parts (List.length ts + 1) ts in
+       let '(v, ts') := parse_version_parts (List.length ts + 1)%nat ts in
        if String.eqb v "" then None else Some (v, ts'))) >>= (fun ver =>
   tok_exact TokSemicolon *>
   p_return (ns, name, ver)))).
@@ -1174,7 +1175,7 @@ Definition parse_wit_package (fuel : nat) : parser wit_package :=
      match fuel with
      | O => None
      | S fuel' =>
-         parse_top_items (List.length ts + 1) (parse_top_item fuel') ts
+         parse_top_items (List.length ts + 1)%nat (parse_top_item fuel') ts
      end) >>= (fun items =>
   (let '(ifaces, worlds) := collect_top_items items in
    let pkg := {| pkg_namespace  := ns;
