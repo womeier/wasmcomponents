@@ -126,7 +126,7 @@ Use the test cases from `wasm-tools/crates/wit-parser/tests/`:
 
 ### 2.1 Component Type Definitions
 
-Define in `theories/component/component_ast.v`, following the binary format spec:
+Define in `theories/component_ast.v`, following the binary format spec:
 
 ```
 (* Component value types - extends core Wasm types *)
@@ -197,14 +197,14 @@ Record component := {
 
 ### 2.2 Component Binary Parser
 
-Create `theories/component/component_binary_parser.v`:
+Create `theories/component_binary_parser.v`:
 - Extend WasmCert binary parser for component sections
 - Handle component preamble (magic, version 0x0d, layer 0x01)
 - Parse all 12 section types
 
 ### 2.3 Component Binary Printer
 
-Create `theories/component/component_binary_printer.v`:
+Create `theories/component_binary_printer.v`:
 - Serialize component AST to binary format
 - Roundtrip property with parser
 
@@ -219,7 +219,7 @@ Test against `wasm-tools/crates/wit-component/tests/components/`:
 
 ### 3.1 Canonical ABI
 
-Define the Canonical ABI in `theories/component/canonical_abi.v`:
+Define the Canonical ABI in `theories/canonical_abi.v`:
 
 ```
 (* Flatten a component type to core Wasm types *)
@@ -241,7 +241,7 @@ Key operations:
 
 ### 3.2 WIT to Component Type Translation
 
-Create `theories/component/wit_to_component.v`:
+Create `theories/wit_to_component.v`:
 
 ```
 (* Translate WIT types to component types *)
@@ -256,7 +256,7 @@ Definition wit_world_to_component (world : wit_world) : component_type := ...
 
 ### 3.3 Module Wrapping
 
-Create `theories/component/module_to_component.v`:
+Create `theories/module_to_component.v`:
 
 ```
 (* Given a core module and a WIT world, produce a component *)
@@ -391,14 +391,13 @@ theories/
 │   ├── wit_parser.v        # WIT text parser
 │   ├── wit_printer.v       # WIT pretty printer
 │   └── wit_tests.v         # Parser/printer tests
-├── component/
-│   ├── component_ast.v     # Component AST
-│   ├── component_binary_parser.v
-│   ├── component_binary_printer.v
-│   ├── canonical_abi.v     # Flatten, lift, lower
-│   ├── wit_to_component.v  # WIT -> component types
-│   ├── module_to_component.v  # Wrapping transformation
-│   └── component_tests.v
+├── component_ast.v            # Component AST
+├── component_binary_parser.v
+├── component_binary_printer.v
+├── canonical_abi.v             # Flatten, lift, lower
+├── wit_to_component.v          # WIT -> component types
+├── module_to_component.v       # Wrapping transformation
+├── component_tests.v
 ├── examples/
 │   ├── add_example.v       # Simple add function
 │   └── random_example.v    # WASI insecure random
