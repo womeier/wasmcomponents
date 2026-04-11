@@ -52,9 +52,10 @@ Lemma parse_malformed_section_length :
     = inr "section 0 (core_module): malformed u32 LEB128 length".
 Proof. vm_compute. reflexivity. Qed.
 
-Lemma parse_unsupported_custom_section :
+(** Custom sections (id 0) are now silently skipped. *)
+Lemma parse_custom_section_skipped :
   run_parse_component (cbp_preamble ++ mk_section (Byte.repr 0) nil)
-    = inr "unsupported section 00 (custom) in strict mode".
+    = inl cbp_empty_component.
 Proof. vm_compute. reflexivity. Qed.
 
 Definition cbp_core_type_payload : list byte := Byte.repr 0 :: nil.
@@ -82,20 +83,25 @@ Lemma parse_malformed_core_module_payload :
     = inr "malformed payload in section 1 (core_module)".
 Proof. vm_compute. reflexivity. Qed.
 
-Definition cbp_malformed_import_payload : list byte := Byte.repr 1 :: nil.
-Definition cbp_malformed_import_section : list byte := mk_section (Byte.repr 10) cbp_malformed_import_payload.
+(** Component import section (id 0x0a) with count=1 produces a placeholder. *)
+Definition cbp_import_payload_1 : list byte := Byte.repr 1 :: nil.
+Definition cbp_import_section_1 : list byte := mk_section (Byte.repr 10) cbp_import_payload_1.
 
-Definition cbp_malformed_export_payload : list byte := Byte.repr 1 :: nil.
-Definition cbp_malformed_export_section : list byte := mk_section (Byte.repr 11) cbp_malformed_export_payload.
+(** Component export section (id 0x0b) with count=1 produces a placeholder. *)
+Definition cbp_export_payload_1 : list byte := Byte.repr 1 :: nil.
+Definition cbp_export_section_1 : list byte := mk_section (Byte.repr 11) cbp_export_payload_1.
 
-Lemma parse_malformed_import_payload :
-  run_parse_component (cbp_preamble ++ cbp_malformed_import_section)
-    = inr "malformed payload in section 10 (import)".
+Lemma parse_component_import_placeholder :
+  run_parse_component (cbp_preamble ++ cbp_import_section_1)
+    = inl (Build_component nil nil nil nil nil nil nil nil None
+             ({| imp_module := nil; imp_name := nil;
+                 imp_desc := MID_func 0%N |} :: nil) nil).
 Proof. vm_compute. reflexivity. Qed.
 
-Lemma parse_malformed_export_payload :
-  run_parse_component (cbp_preamble ++ cbp_malformed_export_section)
-    = inr "malformed payload in section 11 (export)".
+Lemma parse_component_export_placeholder :
+  run_parse_component (cbp_preamble ++ cbp_export_section_1)
+    = inl (Build_component nil nil nil nil nil nil nil nil None nil
+             ({| modexp_name := nil; modexp_desc := MED_func 0%N |} :: nil)).
 Proof. vm_compute. reflexivity. Qed.
 
 Definition cbp_preamble_string : String.string := String.string_of_list_byte (List.map byte_of_compcert_byte cbp_preamble).
