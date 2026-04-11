@@ -29,8 +29,6 @@
         ocaml = rocq-core.ocamlPackages.ocaml;
         vsrocq-language-server = rocqPackages.vsrocq-language-server;
 
-        wasmcert = coqPackages.wasmcert;
-
         # Build wasmcomponents package, copy-pasted from nix toolbox for now
         wasmcomponents = rocqPackages.mkRocqDerivation {
           pname = "wasmcomponents";
@@ -41,7 +39,8 @@
 
           propagatedBuildInputs = [
             rocqPackages.stdlib
-            wasmcert
+            coqPackages.wasmcert
+            coqPackages.ExtLib
           ];
 
           buildPhase = ''
@@ -80,7 +79,6 @@
           name = "wasmcomponents";
           packages = [
             rocq-core
-            wasmcert
             vsrocq-language-server
             ocaml
           ];
