@@ -1,6 +1,6 @@
 WIP formalisation of the Wasm component standard
 
-Most of the code is written by LLMs and is experimental.
+Most of the code is written by LLMs and is experimental, it is not intended to be used by others.
 
 ## Usage
 ```
