@@ -1,4 +1,4 @@
--Q theories wasmcomponents
+-Q theories wasmcomponents 
 
 theories/wit_ast.v
 theories/component_ast.v
@@ -6,4 +6,10 @@ theories/wit_parser.v
 theories/component_binary_parser.v
 theories/component_binary_parser_tests.v
 theories/extraction.v
+theories/component_values.v
+theories/itree.v
+theories/trace_events.v
+theories/trace_semantics.v
+theories/examples/add_example.v
+theories/examples/state_machine_example.v
 
