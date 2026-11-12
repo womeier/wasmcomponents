@@ -399,8 +399,8 @@ theories/
 ├── module_to_component.v       # Wrapping transformation
 ├── component_tests.v
 ├── examples/
-│   ├── add_example.v       # Simple add function
-│   └── random_example.v    # WASI insecure random
+│   ├── add/add.v           # Simple add function
+│   └── random/random.v     # WASI insecure random
 └── extraction/
     └── extract.v           # OCaml extraction for tooling
 ```

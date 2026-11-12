@@ -10,6 +10,6 @@ theories/component_values.v
 theories/itree.v
 theories/trace_events.v
 theories/trace_semantics.v
-theories/examples/add_example.v
-theories/examples/state_machine_example.v
+theories/examples/add/add.v
+theories/examples/state_machine/state_machine.v
 
