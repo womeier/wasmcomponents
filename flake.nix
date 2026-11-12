@@ -24,7 +24,6 @@
         };
 
         rocqPackages = pkgs.rocqPackages_9_1;
-        coqPackages = pkgs.coqPackages_9_1;
         rocq-core = rocqPackages.rocq-core;
         ocaml = rocq-core.ocamlPackages.ocaml;
         vsrocq-language-server = rocqPackages.vsrocq-language-server;
@@ -39,8 +38,8 @@
 
           propagatedBuildInputs = [
             rocqPackages.stdlib
-            coqPackages.wasmcert
-            coqPackages.ExtLib
+            rocqPackages.wasmcert
+            rocqPackages.ExtLib
           ];
 
           buildPhase = ''
@@ -158,7 +157,7 @@ EOF
 
           outputHashMode = "recursive";
           outputHashAlgo = "sha256";
-          outputHash = "sha256-ZCptMBQ4yorzDhYjf9xWP4PzIMOCzLL/CXTlxsPqxfc=";
+          outputHash = "sha256-jBPERlcQD5jJ1LP2sOIB3KQIFDvhLEpWpbM7+m3O3uM=";
         };
 
         rocq-mcp = pkgs.stdenv.mkDerivation {
@@ -209,7 +208,7 @@ EOF
             rocq-core
             # provides the `pet` binary rocq-mcp's interactive tools need.
             rocqPackages.coq-lsp
-            coqPackages.wasmcert
+            rocqPackages.wasmcert
             vsrocq-language-server
             ocaml
             rocq-mcp
