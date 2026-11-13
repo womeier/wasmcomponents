@@ -21,3 +21,5 @@ wc-tools
 src/extraction
 docs
 __pycache__
+.lia.cache
+.nia.cache

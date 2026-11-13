@@ -214,17 +214,24 @@ EOF
             rocq-mcp
           ];
 
-          # This Rocq install has no `coqc` symlink — point rocq-mcp at
-          # the `rocq` binary directly.
-          ROCQ_COQC_BINARY = "${rocq-core}/bin/rocq";
+          # This Rocq install has no `coqc` symlink, and rocq-mcp invokes
+          # the binary coqc-style (`$BINARY -Q ...`), so a bare `rocq`
+          # fails with "Unknown subcommand -Q" — shim in the `c`.
+          ROCQ_COQC_BINARY = "${pkgs.writeShellScript "coqc-shim" ''
+            exec ${rocq-core}/bin/rocq c "$@"
+          ''}";
           shellHook = ''
             # ROCQ_WORKSPACE must be the live checkout, not the store copy
             # of ${self} (which omits untracked files).
             export ROCQ_WORKSPACE="$PWD"
-            echo "WasmComponents development environment"
-            echo "  rocq-mcp:          $(rocq-mcp --version 2>/dev/null || echo 'available')"
-            echo "  ROCQ_COQC_BINARY:  $ROCQ_COQC_BINARY"
-            echo "  ROCQ_WORKSPACE:    $ROCQ_WORKSPACE"
+            # stderr, not stdout: `nix develop -c rocq-mcp` speaks JSON-RPC
+            # over stdout, and a banner there corrupts the handshake.
+            echo "WasmComponents development environment" >&2
+            # Not `rocq-mcp --version`: there is no such flag, and it falls
+            # through to starting the server, which then eats the shell's stdin.
+            echo "  rocq-mcp:          $(command -v rocq-mcp)" >&2
+            echo "  ROCQ_COQC_BINARY:  $ROCQ_COQC_BINARY" >&2
+            echo "  ROCQ_WORKSPACE:    $ROCQ_WORKSPACE" >&2
           '';
         };
 
