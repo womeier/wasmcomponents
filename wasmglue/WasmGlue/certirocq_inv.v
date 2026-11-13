@@ -464,6 +464,59 @@ Definition host_at (sr : store_record) (inst : moduleinst)
                    (i : funcidx) (ty : function_type) (h : host_function) : Prop :=
   exists a, lookup_N (inst_funcs inst) i = Some a /\
             lookup_N sr.(s_funcs) a = Some (FC_func_host ty h).
+
+(** ** Calling one of the adapter's own bodies
+
+    Every call an adapter makes to a body it defines itself — [$ok], [$err],
+    [$alloc] — unfolds to the same sandwich: [r_call] to an address,
+    [r_invoke_native] into a frame wrapping a label, the body, then the label
+    and the frame collapsing again.  Only the middle depends on which body it
+    is, so the sandwich is this lemma and the proof supplies the middle.
+
+    [modfunc_locals code = [::]] keeps [default_vals] out of the statement:
+    these bodies take their arguments as parameters and declare no locals.
+    The callee's frame may differ at the end ([fr']) because a body is free
+    to [local.set]; the caller's frame is untouched either way.  Void only —
+    every one of them returns nothing, and a result would have to come back
+    through the label. *)
+Lemma reduce_call_native_void :
+  forall hs sr sr' inst fr fr' (fi : funcidx) ts1 code vs,
+  native_at sr inst fi (Tf ts1 [::]) code ->
+  f_inst fr = inst ->
+  modfunc_locals code = [::] ->
+  length vs = length ts1 ->
+  reduce_trans (hs, sr, Build_frame vs inst, to_e_list (modfunc_body code))
+               (hs, sr', fr', [::]) ->
+  reduce_trans (hs, sr, fr, v_to_e_list vs ++ [:: AI_basic (BI_call fi)])
+               (hs, sr', fr, [::]).
+Proof.
+  intros hs sr sr' inst fr fr' fi ts1 code vs
+         [fa [Hidx Hfunc]] Hfinst Hlocs Hlen Hbody.
+  destruct code as [x ts es]. cbn in Hlocs. subst ts. cbn in Hbody.
+  eapply rt_trans with (y := (hs, sr, fr, v_to_e_list vs ++ [:: AI_invoke fa])).
+  { apply rt_step. apply r_eliml; [apply v_to_e_const|].
+    apply r_call. rewrite Hfinst. exact Hidx. }
+  eapply rt_trans with (y := (hs, sr, fr,
+    [:: AI_frame 0 (Build_frame (vs ++ [::]) inst)
+          [:: AI_label 0 [::] (to_e_list es)]])).
+  { apply rt_step.
+    eapply r_invoke_native with
+      (cl := FC_func_native (Tf ts1 [::]) inst (Build_module_func x [::] es))
+      (ts1 := ts1) (ts2 := [::]) (x := x) (ts := [::]) (es := es)
+      (ves := v_to_e_list vs) (vs := vs)
+      (n := length vs) (m := 0) (k := 0) (defaults := [::]) (inst := inst);
+      try reflexivity.
+    - exact Hfunc.
+    - symmetry. exact Hlen. }
+  rewrite cats0.
+  eapply rt_trans with (y := (hs, sr', fr,
+    [:: AI_frame 0 fr' [:: AI_label 0 [::] [::]]])).
+  { apply (reduce_trans_frame 0 fr). apply reduce_trans_label0. exact Hbody. }
+  eapply rt_trans with (y := (hs, sr', fr, [:: AI_frame 0 fr' [::]])).
+  { apply (reduce_trans_frame 0 fr). apply rt_step. apply r_simple.
+    apply rs_label_const. reflexivity. }
+  apply rt_step. apply r_simple. eapply rs_local_const; reflexivity.
+Qed.
 (** ** Reading a field
 
     [BI_load] takes its static offset as part of the [memarg], so the address

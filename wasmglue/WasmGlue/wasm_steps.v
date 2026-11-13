@@ -24,7 +24,8 @@
 
 From Wasm Require Import datatypes operations memory opsem host properties.
 
-From Stdlib Require Import BinNat List Relations.Relations Relations.Relation_Operators.
+From Stdlib Require Import BinNat List Lia
+  Relations.Relations Relations.Relation_Operators.
 
 Import ssreflect ssrbool eqtype.
 Import ListNotations.
@@ -259,3 +260,89 @@ Ltac dostep_nary' n :=
 (** As [dostep_nary], but leaving [n'] leading values untouched. *)
 Ltac dostep_nary_eliml n n' :=
   dostep; first ((do n'! (apply r_eliml; auto)); elimr_nary_instr n).
+
+(** ** Stepping without naming the step
+
+    [dostep_nary n] has to be told two things the goal already determines:
+    how many values the instruction at the head consumes, and how many
+    values are sitting in front of it.  [dostep_auto] finds both and fires
+    the rule for that instruction; [dostep_all] repeats it until it reaches
+    an instruction it does not handle.
+
+    It handles the *pure* instructions — the ones whose step is a function of
+    the operand stack and the frame alone.  Loads, stores, calls, [if] and
+    branches are left alone deliberately: each of those needs a fact about
+    the store that only the surrounding proof has (which [smem_store] result,
+    which [sglob_val]), and firing them automatically would mean an [eauto]
+    over the store lemmas whose failures are far harder to read than a
+    [dostep_nary] that stopped. [local.set] is excluded for a related reason:
+    its rule needs the *target frame*, and these proofs keep frames in a
+    canonical form ([exp_locs] in the example files) that no tactic can
+    guess — hence [dostep_set] below, which takes it as its one argument.
+
+    So an adapter proof becomes [dostep_all] runs separated by the handful of
+    steps that are genuinely about the store.  The instruction list has to be
+    in explicit [AI_*] form already (the [cbn] that [dostep] performs is
+    inside the step, too late to dispatch on); every adapter proof starts
+    with that [cbn] anyway. *)
+
+(** The rules, tried in order.  Nothing here searches: each alternative is
+    one [apply] whose side conditions are either a [lookup_N] on a concrete
+    frame, a [*_typecheck] boolean, or an [app_binop] — all [reflexivity] —
+    or a [sglob_val] that the context has to supply. *)
+Ltac pure_step_rule :=
+  first
+    [ apply r_local_get; reflexivity
+    | apply r_global_get;
+      first [ eassumption
+            | match goal with H : f_inst _ = _ |- _ => rewrite H; eassumption end ]
+    | apply r_simple; eapply rs_unop; reflexivity
+    | apply r_simple; eapply rs_binop_success; [reflexivity | reflexivity]
+    | apply r_simple; eapply rs_relop; reflexivity
+    | apply r_simple; apply rs_testop_i32
+    | apply r_simple; apply rs_testop_i64 ].
+
+(** The split, found by trying the possibilities rather than by reading the
+    instruction list.  Each alternative is a [dostep_*] *paired with the
+    rule*, which is what makes the search sound: a split that grouped the
+    wrong instructions — [elimr_nary_instr] will happily shift its pattern
+    along a run of values, taking a constant for the instruction — leaves a
+    [reduce] goal no rule applies to, so the branch fails and is backtracked
+    over.  The one that both splits and steps is the right one.
+
+    Searching rather than dispatching is not elegant, but dispatching needs
+    arithmetic on the arity (how many values to leave in front = how many are
+    on the stack minus what the instruction takes) and Ltac1 has none: a
+    numeral is either an [int] it cannot subtract with or a [constr] the
+    [dostep_*] tactics do not take.  The pairs below cover arity up to 2 with
+    up to three values in front, which is every instruction a canonical-ABI
+    adapter contains.
+
+    Ordered cheapest-first; within that, the shapes an adapter body actually
+    produces come before the rest. *)
+Ltac dostep_auto :=
+  first [ dostep_nary 0          ; [pure_step_rule | ]
+        | dostep_nary 1          ; [pure_step_rule | ]
+        | dostep_nary 2          ; [pure_step_rule | ]
+        | dostep_nary_eliml 0 1  ; [pure_step_rule | ]
+        | dostep_nary_eliml 1 1  ; [pure_step_rule | ]
+        | dostep_nary_eliml 2 1  ; [pure_step_rule | ]
+        | dostep_nary_eliml 0 2  ; [pure_step_rule | ]
+        | dostep_nary_eliml 1 2  ; [pure_step_rule | ]
+        | dostep_nary_eliml 2 2  ; [pure_step_rule | ]
+        | dostep_nary_eliml 0 3  ; [pure_step_rule | ]
+        | dostep_nary' 0         ; [pure_step_rule | ]
+        | dostep_nary' 1         ; [pure_step_rule | ]
+        | dostep_nary' 2         ; [pure_step_rule | ] ].
+
+Ltac dostep_all := repeat dostep_auto.
+
+(** [local.set i], with the frame it produces.  The three side conditions of
+    [r_local_set] are the same three every time: the instance is unchanged,
+    the index is in range, and the new locals are the old ones updated. *)
+Ltac dostep_set i f' :=
+  dostep_nary 1;
+  [ eapply r_local_set with (i := i) (f' := f')
+      (vd := VAL_num (VAL_int32 (Wasm_int.Int32.repr 0)));
+    [ reflexivity | cbn; (reflexivity || lia) | cbn; reflexivity ]
+  | ].
