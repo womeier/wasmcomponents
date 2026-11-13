@@ -271,7 +271,7 @@ Qed.
 
 Section WithMemory.
 
-Context `{Memory}.
+Context `{BlockUpdateMemory}.
 
 Lemma store_takefill : forall (m : meminst) (a off : N) (bs : bytes) (l : nat),
   store m a off (bytes_takefill #00 l bs) l = store m a off bs l.

@@ -12,7 +12,11 @@ CertiRocq's calling convention and the adapter code
 See `wasmglue/README.md`.
 
 The dev shell puts `wasmglue/` on `ROCQPATH`, so `make -C wasmglue`
-before `make` is enough to pick up changes to it.
+makes changes to it visible. Note that the generated `Makefile.rocq`
+tracks dependencies only inside `theories/`: after rebuilding the
+library, `make` will report nothing to do and leave stale `.vo` files
+that fail with *inconsistent assumptions*. Delete `theories/**/*.vo`
+and rebuild when the library changes.
 
 ## Usage
 ```

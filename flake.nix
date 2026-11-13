@@ -23,7 +23,18 @@
             ];
         };
 
-        rocqPackages = pkgs.rocqPackages_9_1;
+        # WasmCert 2.2.1 rather than the 2.2.0 nixpkgs picks for Rocq 9.1.
+        # 2.2.1 fixes signed LEB128 encoding and `return_call` parsing, both
+        # of which the binary-parser round-trip depends on -- that round-trip
+        # is what is meant to retire the trusted WAT transcription in the
+        # examples (PLAN-authentikate.md F(5)).  Overriding the scope, not a
+        # single reference, so the dev shell, wasmglue and wasmcomponents all
+        # see one WasmCert.
+        rocqPackages = pkgs.rocqPackages_9_1.overrideScope (
+          final: prev: {
+            wasmcert = prev.wasmcert.override { version = "2.2.1"; };
+          }
+        );
         rocq-core = rocqPackages.rocq-core;
         ocaml = rocq-core.ocamlPackages.ocaml;
         vsrocq-language-server = rocqPackages.vsrocq-language-server;

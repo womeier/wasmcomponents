@@ -15,9 +15,9 @@
     - [load_store_same]    — it is visible where it was written;
     - [load_store_disjoint]— it is invisible everywhere else.
 
-    Everything is derived from the [Memory] typeclass axioms, so it holds for
-    whichever backing representation ([memory_list], [memory_vec]) the
-    instantiation picks.  Nothing here mentions the echo slice; like
+    Everything is derived from the [Memory] and [BlockUpdateMemory] typeclass
+    axioms, so it holds for whichever backing representation ([memory_list],
+    [memory_vec]) the instantiation picks.  Nothing here mentions the echo slice; like
     [echo_steps.v] this is a gap in WasmCert that happens to be filled here.
 
     ** A note on [nat] versus [N]
@@ -134,36 +134,35 @@ Qed.
 
 Section WithMemory.
 
-Context `{Memory}.
+(** [BlockUpdateMemory], not [Memory]: since wasmcert 2.2.1 a bulk write is
+    one [mem_update_gen] rather than a fold of [mem_update], and that operation
+    lives in the larger class.  [memory_from_bum] makes the plain [Memory]
+    operations available here all the same. *)
+Context `{BlockUpdateMemory}.
 
 (** ** [write_bytes], on the raw memory
 
-    The four facts, by induction on the bytes written: it succeeds inside the
-    memory, it does not change the length, it leaves everything outside the
-    written range alone, and inside the range it holds what was written. *)
+    The four facts: it succeeds inside the memory, it does not change the
+    length, it leaves everything outside the written range alone, and inside
+    the range it holds what was written.  Each is now the corresponding
+    [mem_update_gen] axiom, read through [write_bytes]'s generator — before
+    2.2.1 these were inductions over the bytes. *)
 Lemma write_bytes_exists : forall (bs : bytes) (md : mem_t) (a : N),
   (a + N.of_nat (List.length bs) <= memory.mem_length md)%N ->
   exists md', write_bytes md a bs = Some md'.
 Proof.
-  induction bs as [| b bs IH]; intros md a Hlen.
-  - exists md. reflexivity.
-  - cbn [List.length] in Hlen. cbn [write_bytes].
-    destruct (mem_update a b md) as [md1|] eqn:Hupd.
-    + apply IH.
-      assert (Hl : memory.mem_length md1 = memory.mem_length md)
-        by (eapply mem_update_length; exact Hupd).
-      rewrite Hl. lia.
-    + exfalso. eapply mem_update_ib; [| exact Hupd]. lia.
+  intros bs md a Hlen. unfold write_bytes, write_bytes_gen.
+  destruct (mem_update_gen a (N.of_nat (List.length bs)) _ md) as [md'|] eqn:Hupd.
+  - exists md'. reflexivity.
+  - exfalso. eapply mem_update_gen_ib; [exact Hlen | exact Hupd].
 Qed.
 
 Lemma write_bytes_length : forall (bs : bytes) (md md' : mem_t) (a : N),
   write_bytes md a bs = Some md' ->
   memory.mem_length md' = memory.mem_length md.
 Proof.
-  induction bs as [| b bs IH]; intros md md' a Hw.
-  - cbn in Hw. injection Hw as <-. reflexivity.
-  - cbn in Hw. destruct (mem_update a b md) as [md1|] eqn:Hupd; [|discriminate].
-    rewrite (IH _ _ _ Hw). eapply mem_update_length; exact Hupd.
+  intros bs md md' a Hw. unfold write_bytes, write_bytes_gen in Hw.
+  symmetry. eapply mem_update_gen_length; exact Hw.
 Qed.
 
 Lemma write_bytes_lookup_ne : forall (bs : bytes) (md md' : mem_t) (a i : N),
@@ -171,13 +170,10 @@ Lemma write_bytes_lookup_ne : forall (bs : bytes) (md md' : mem_t) (a i : N),
   ((i < a)%N \/ (a + N.of_nat (List.length bs) <= i)%N) ->
   mem_lookup i md' = mem_lookup i md.
 Proof.
-  induction bs as [| b bs IH]; intros md md' a i Hw Hdis.
-  - cbn in Hw. injection Hw as <-. reflexivity.
-  - cbn in Hw. destruct (mem_update a b md) as [md1|] eqn:Hupd; [|discriminate].
-    cbn [List.length] in Hdis.
-    assert (Hstep : mem_lookup i md' = mem_lookup i md1).
-    { apply (IH md1 md' (a + 1)%N i Hw). lia. }
-    rewrite Hstep. eapply mem_update_lookup_ne; [| exact Hupd]. lia.
+  intros bs md md' a i Hw [Hlt | Hge];
+    unfold write_bytes, write_bytes_gen in Hw.
+  - eapply mem_update_gen_lookup_lt; [exact Hw | exact Hlt].
+  - eapply mem_update_gen_lookup_ge; [exact Hw | lia].
 Qed.
 
 Lemma write_bytes_lookup_in : forall (bs : bytes) (md md' : mem_t) (a : N) (k : nat),
@@ -185,18 +181,12 @@ Lemma write_bytes_lookup_in : forall (bs : bytes) (md md' : mem_t) (a : N) (k : 
   (k < List.length bs)%nat ->
   mem_lookup (a + N.of_nat k)%N md' = List.nth_error bs k.
 Proof.
-  induction bs as [| b bs IH]; intros md md' a k Hw Hk.
-  - cbn [List.length] in Hk. lia.
-  - cbn in Hw. destruct (mem_update a b md) as [md1|] eqn:Hupd; [|discriminate].
-    destruct k as [| k'].
-    + replace (a + N.of_nat 0)%N with a by lia.
-      assert (Hstep : mem_lookup a md' = mem_lookup a md1).
-      { apply (write_bytes_lookup_ne bs md1 md' (a + 1)%N a Hw). lia. }
-      rewrite Hstep. cbn [List.nth_error].
-      eapply mem_update_lookup; exact Hupd.
-    + replace (a + N.of_nat (S k'))%N with ((a + 1) + N.of_nat k')%N by lia.
-      cbn [List.nth_error].
-      apply (IH md1 md' (a + 1)%N k' Hw). cbn [List.length] in Hk. lia.
+  intros bs md md' a k Hw Hk. unfold write_bytes, write_bytes_gen in Hw.
+  erewrite mem_update_gen_lookup; [| exact Hw | lia].
+  (* the generator reads [bs] back, so this is [nth_error] in range *)
+  unfold lookup_N. rewrite Nnat.Nat2N.id.
+  destruct (List.nth_error bs k) as [b|] eqn:Hnth; [reflexivity |].
+  exfalso. apply List.nth_error_None in Hnth. lia.
 Qed.
 
 (** ** [read_bytes], on a memory instance *)

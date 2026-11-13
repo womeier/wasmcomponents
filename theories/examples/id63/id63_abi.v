@@ -102,7 +102,7 @@ Definition error_code (e : abi_error) : N :=
 
 Section WithMemory.
 
-Context `{Memory}.
+Context `{BlockUpdateMemory}.
 
 (** [canon_result_u64 m ret r] : the 16-byte return area at [ret] in [m]
     holds [r].

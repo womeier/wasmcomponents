@@ -48,7 +48,7 @@ Definition glob_buf_len : globalidx := 4%N.
 
 Section WithMemory.
 
-Context `{Memory}.
+Context `{BlockUpdateMemory}.
 
 (** ** Representation of [list byte]
 

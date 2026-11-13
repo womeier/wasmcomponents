@@ -54,13 +54,15 @@ Definition Z_to_value64 (z : Z) : value := VAL_num (VAL_int64 (Z_to_i64 z)).
     stated over [N] it is one comparison. *)
 Definition i32mod : N := Z.to_N Wasm_int.Int32.modulus.
 
-(** Everything below mentions [meminst], which WasmCert parameterises by the
-    [Memory] typeclass, so it lives in a section carrying that instance — the
+(** Everything below mentions [meminst], which WasmCert parameterises by its
+    memory typeclass, so it lives in a section carrying that instance — the
     same way CertiRocq's utils do (there the instance arrives bundled inside
-    [Context `{ho : host}]). *)
+    [Context `{ho : host}]).  [BlockUpdateMemory] rather than [Memory]
+    because [store] is a bulk write since wasmcert 2.2.1; it yields a
+    [Memory] through [memory_from_bum]. *)
 Section WithMemory.
 
-Context `{Memory}.
+Context `{BlockUpdateMemory}.
 
 (** ** Reading and writing a cell
 

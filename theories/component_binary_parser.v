@@ -17,6 +17,12 @@ Open Scope N_scope.
 Open Scope bool_scope.
 Open Scope byte_scope.
 
+(** Section ids are compcert bytes, as [Wasm.bytes] defines them.  Pinned
+    because wasmcert 2.2.1's import graph also brings
+    [datatypes_properties.byte_eqb] into scope, which decides [Stdlib]'s
+    256-constructor [Byte.byte] and shadows this one. *)
+Local Definition byte_eqb : byte -> byte -> bool := Wasm.bytes.byte_eqb.
+
 Definition component_result (A : Type) : Type := A + string.
 
 Definition component_ok {A} (x : A) : component_result A := inl x.

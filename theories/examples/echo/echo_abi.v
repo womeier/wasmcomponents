@@ -77,7 +77,7 @@ Definition disc_err : N := 1.
 
 Section WithMemory.
 
-Context `{Memory}.
+Context `{BlockUpdateMemory}.
 
 (** ** [list<u8>] as a lowered buffer
 
