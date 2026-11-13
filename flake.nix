@@ -28,6 +28,12 @@
         ocaml = rocq-core.ocamlPackages.ocaml;
         vsrocq-language-server = rocqPackages.vsrocq-language-server;
 
+        # The glue layer is its own package (rocq-wasmcomponents-certirocq):
+        # nothing in it depends on the component-model formalization, and
+        # verifying hand-written glue should not require building that.
+        # See wasmglue/README.md.
+        wasmglue = pkgs.callPackage ./wasmglue { inherit rocqPackages; };
+
         # Build wasmcomponents package, copy-pasted from nix toolbox for now
         wasmcomponents = rocqPackages.mkRocqDerivation {
           pname = "wasmcomponents";
@@ -40,6 +46,7 @@
             rocqPackages.stdlib
             rocqPackages.wasmcert
             rocqPackages.ExtLib
+            wasmglue
           ];
 
           buildPhase = ''
@@ -198,6 +205,7 @@ EOF
       {
         packages.default = wasmcomponents;
         packages.wasmcomponents = wasmcomponents;
+        packages.wasmglue = wasmglue;
         packages.rocq-mcp = rocq-mcp;
         packages.rocq-mcp-wheelhouse = rocq-mcp-wheelhouse;
         packages.pytanque = pytanque;
@@ -224,6 +232,13 @@ EOF
             # ROCQ_WORKSPACE must be the live checkout, not the store copy
             # of ${self} (which omits untracked files).
             export ROCQ_WORKSPACE="$PWD"
+            # wasmglue is a dependency, not a subdirectory of this build, so
+            # it is not on the -Q line.  Point the load path at the working
+            # tree rather than at `packages.wasmglue`, so that editing
+            # wasmglue/WasmGlue and running `make -C wasmglue` is enough.
+            # Prepend: the nix setup hook has already put wasmcert (and
+            # compcert, through it) on ROCQPATH, and overwriting it loses them.
+            export ROCQPATH="$PWD/wasmglue''${ROCQPATH:+:$ROCQPATH}"
             # stderr, not stdout: `nix develop -c rocq-mcp` speaks JSON-RPC
             # over stdout, and a banner there corrupts the handshake.
             echo "WasmComponents development environment" >&2
@@ -232,6 +247,7 @@ EOF
             echo "  rocq-mcp:          $(command -v rocq-mcp)" >&2
             echo "  ROCQ_COQC_BINARY:  $ROCQ_COQC_BINARY" >&2
             echo "  ROCQ_WORKSPACE:    $ROCQ_WORKSPACE" >&2
+            echo "  WasmGlue:          $PWD/wasmglue (on ROCQPATH; build with make -C wasmglue)" >&2
           '';
         };
 

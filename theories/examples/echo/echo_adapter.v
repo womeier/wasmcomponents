@@ -22,7 +22,8 @@ From Wasm Require Import datatypes operations numerics.
 
 From Stdlib Require Import ZArith BinNat List Strings.String.
 
-From wasmcomponents Require Import certirocq_heap echo_heap echo_abi.
+From WasmGlue Require Import certirocq_heap.
+From wasmcomponents Require Import echo_heap echo_abi.
 
 Import ListNotations.
 

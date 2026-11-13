@@ -22,7 +22,7 @@ From Wasm Require Import datatypes operations numerics memory.
 
 From Stdlib Require Import ZArith BinNat NArith.Nnat List Lia.
 
-From wasmcomponents Require Import wasm_mem.
+From WasmGlue Require Import wasm_mem.
 
 Import ListNotations.
 Import Wasm_int.

@@ -1,0 +1,30 @@
+opam-version: "2.0"
+maintainer: "W. Meier"
+version: "dev"
+license: "MIT"
+
+synopsis: "Verified glue for CertiRocq-compiled Wasm components"
+description: """
+The world-independent half of componentize-formal's correctness
+development: the fragment of CertiRocq's Wasm calling convention an
+adapter has to respect (certirocq_heap, certirocq_inv), the memory and
+reduction lemmas that reasoning about one needs (wasm_mem, wasm_steps),
+and the adapter code the generator emits for every world together with
+its specification (certirocq_adapter).
+
+Depends on nothing in the component-model formalization, so it can be
+used on its own to verify hand-written glue.
+"""
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+depends: [
+  "rocq-core" {>= "9.0"}
+  "rocq-stdlib"
+  "coq-wasm" {>= "2.2.0"}
+]
+
+tags: [
+  "logpath:WasmGlue"
+]
+authors: [ "W. Meier" ]

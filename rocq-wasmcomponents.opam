@@ -12,6 +12,7 @@ depends: [
   "rocq-core" {>= "9.0"}
   "rocq-stdlib"
   "coq-wasm" {>= "2.2.0"}
+  "rocq-wasmcomponents-certirocq"
 ]
 
 tags: [

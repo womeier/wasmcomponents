@@ -21,7 +21,7 @@ From Wasm Require Import datatypes operations numerics memory opsem host propert
 From Stdlib Require Import ZArith BinNat NArith.Nnat List Lia
   Relations.Relations Relations.Relation_Operators.
 
-From wasmcomponents Require Import wasm_steps wasm_mem certirocq_heap.
+From WasmGlue Require Import wasm_steps wasm_mem certirocq_heap.
 
 Import ssreflect ssrbool eqtype.
 Import ListNotations.

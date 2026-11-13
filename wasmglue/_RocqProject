@@ -1,0 +1,7 @@
+-Q WasmGlue WasmGlue
+
+WasmGlue/wasm_mem.v
+WasmGlue/wasm_steps.v
+WasmGlue/certirocq_heap.v
+WasmGlue/certirocq_inv.v
+WasmGlue/certirocq_adapter.v

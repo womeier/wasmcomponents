@@ -44,278 +44,23 @@ From Wasm Require Import datatypes operations numerics memory opsem host propert
 From Stdlib Require Import ZArith BinNat NArith.Nnat List Lia
   Relations.Relations Relations.Relation_Operators.
 
-From wasmcomponents Require Import wasm_steps wasm_mem certirocq_heap certirocq_inv
-  id63_abi id63_adapter.
+From WasmGlue Require Import wasm_steps wasm_mem certirocq_heap certirocq_inv
+  certirocq_adapter.
+From wasmcomponents Require Import id63_abi id63_adapter.
 
 Import ssreflect ssrbool eqtype.
 Import ListNotations.
 Import seq.
 
-(** ** i32/i64 arithmetic the export needs
-
-    Stated at the level of [app_binop]/[app_relop], like the lemmas in
-    [certirocq_inv.v] they extend. *)
-
-Lemma app_binop_mul : forall a b,
-  app_binop (Binop_i BOI_mul) (VAL_int32 (N_to_i32 a)) (VAL_int32 (N_to_i32 b))
-  = Some (VAL_int32 (N_to_i32 (a * b)%N)).
-Proof.
-  intros a b.
-  change (app_binop (Binop_i BOI_mul) (VAL_int32 (N_to_i32 a)) (VAL_int32 (N_to_i32 b)))
-    with (Some (VAL_int32 (Wasm_int.Int32.mul (N_to_i32 a) (N_to_i32 b)))).
-  do 2! f_equal. unfold Wasm_int.Int32.mul, N_to_i32. rewrite N2Z.inj_mul.
-  apply Wasm_int.Int32.eqm_samerepr, Wasm_int.Int32.eqm_mult;
-    apply Wasm_int.Int32.eqm_unsigned_repr_l, Wasm_int.Int32.eqm_refl.
-Qed.
-
-(** [i32.const -8] is the all-ones mask with the low three bits cleared,
-    which is the shape [app_binop_align_up] wants it in. *)
-Lemma i32_neg8_mask :
-  Wasm_int.Int32.repr (-8)%Z
-  = Wasm_int.Int32.xor (N_to_i32 (8 - 1)%N) Wasm_int.Int32.mone.
-Proof. apply Wasm_int.Int32.same_if_eq. vm_compute. reflexivity. Qed.
-
-(** The prologue's rounding of the allocation pointer, as one binop. *)
-Lemma app_binop_align8 : forall gmp,
-  (gmp + 8 < i32mod)%N ->
-  app_binop (Binop_i BOI_and)
-    (VAL_int32 (N_to_i32 (gmp + 7)%N))
-    (VAL_int32 (Wasm_int.Int32.repr (-8)%Z))
-  = Some (VAL_int32 (N_to_i32 (alloc_ptr gmp 8))).
-Proof.
-  intros gmp H. rewrite i32_neg8_mask.
-  replace (gmp + 7)%N with (gmp + (8 - 1))%N by lia.
-  apply app_binop_align_up; [right; right; reflexivity | exact H].
-Qed.
-
-(** The range check reads the [u64] argument as a signed [i64]: negative
-    means the top bit is set, i.e. the value has no [Uint63.int]. *)
-
-Lemma i64_max_signed_val : Wasm_int.Int64.max_signed = (2 ^ 63 - 1)%Z.
-Proof. vm_compute. reflexivity. Qed.
-
-Lemma i64_min_signed_val : Wasm_int.Int64.min_signed = (- 2 ^ 63)%Z.
-Proof. vm_compute. reflexivity. Qed.
-
-Lemma i64_modulus_val : Wasm_int.Int64.modulus = (2 ^ 64)%Z.
-Proof. vm_compute. reflexivity. Qed.
-
-Lemma i64_half_modulus_val : Wasm_int.Int64.half_modulus = (2 ^ 63)%Z.
-Proof. vm_compute. reflexivity. Qed.
-
-Lemma app_relop_lt0_s64_false : forall z,
-  (0 <= z < 2 ^ 63)%Z ->
-  app_relop (Relop_i (ROI_lt SX_S))
-    (VAL_int64 (Z_to_i64 z)) (VAL_int64 (Z_to_i64 0))
-  = false.
-Proof.
-  intros z Hz.
-  change (app_relop (Relop_i (ROI_lt SX_S))
-            (VAL_int64 (Z_to_i64 z)) (VAL_int64 (Z_to_i64 0)))
-    with (Wasm_int.Int64.lt (Z_to_i64 z) (Z_to_i64 0)).
-  unfold Wasm_int.Int64.lt, Z_to_i64.
-  rewrite !Wasm_int.Int64.signed_repr;
-    try (rewrite i64_min_signed_val i64_max_signed_val; lia).
-  destruct (Coqlib.zlt z 0); [lia | reflexivity].
-Qed.
-
-Lemma app_relop_lt0_s64_true : forall z,
-  (2 ^ 63 <= z < 2 ^ 64)%Z ->
-  app_relop (Relop_i (ROI_lt SX_S))
-    (VAL_int64 (Z_to_i64 z)) (VAL_int64 (Z_to_i64 0))
-  = true.
-Proof.
-  intros z Hz.
-  change (app_relop (Relop_i (ROI_lt SX_S))
-            (VAL_int64 (Z_to_i64 z)) (VAL_int64 (Z_to_i64 0)))
-    with (Wasm_int.Int64.lt (Z_to_i64 z) (Z_to_i64 0)).
-  unfold Wasm_int.Int64.lt, Z_to_i64.
-  rewrite (Wasm_int.Int64.signed_repr 0);
-    [| rewrite i64_min_signed_val i64_max_signed_val; lia].
-  rewrite Wasm_int.Int64.signed_repr_eq.
-  rewrite Z.mod_small; [| rewrite i64_modulus_val; lia].
-  rewrite i64_half_modulus_val i64_modulus_val.
-  destruct (Coqlib.zlt z (2 ^ 63)); [lia |].
-  destruct (Coqlib.zlt (z - 2 ^ 64) 0); [reflexivity | lia].
-Qed.
-
-(** ** Storing and reading single bytes
-
-    The return area's discriminants are bytes, written with [i32.store8] and
-    read back with [load_u8].  [store_packed] is [store] at length 1, which
-    keeps only the low byte of the operand — little-endian, by the vendored
-    compcert's [Archi]. *)
-
-Lemma bytes_takefill_takefill : forall b l (bs : bytes),
-  bytes_takefill b l (bytes_takefill b l bs) = bytes_takefill b l bs.
-Proof.
-  intros b l bs. apply bytes_takefill_id. apply bytes_takefill_length.
-Qed.
-
-Section WithMemory.
-
-Context `{Memory}.
-
-Lemma store_takefill : forall (m : meminst) (a off : N) (bs : bytes) (l : nat),
-  store m a off (bytes_takefill #00 l bs) l = store m a off bs l.
-Proof.
-  intros m a off bs l. unfold store.
-  destruct (N.leb (a + off + N.of_nat l) (mem_length m)); [| reflexivity].
-  rewrite bytes_takefill_takefill. reflexivity.
-Qed.
-
-(** The two discriminant values the adapter ever stores. *)
-Lemma takefill_serialise_0 :
-  bytes_takefill #00 1 (serialise_i32 (N_to_i32 0)) = [:: Integers.Byte.zero].
-Proof. vm_compute. reflexivity. Qed.
-
-Lemma takefill_serialise_1 :
-  bytes_takefill #00 1 (serialise_i32 (N_to_i32 1)) = [:: Integers.Byte.one].
-Proof. vm_compute. reflexivity. Qed.
-
-(** Writing the low byte of [N_to_i32 k] and reading it back, for the [k]
-    the adapter uses.  Stated for 0 and 1 only because the general statement
-    needs [k mod 256] and nothing here does. *)
-Lemma store_u8_load_01 : forall (m m' : meminst) (a k : N),
-  (k = 0 \/ k = 1)%N ->
-  store m a 0%N (serialise_i32 (N_to_i32 k)) 1 = Some m' ->
-  load_u8 m' a = Some k.
-Proof.
-  intros m m' a k Hk Hst.
-  rewrite <- store_takefill in Hst.
-  assert (Hld : load m' a 0%N (N.of_nat 1)
-                = Some (bytes_takefill #00 1 (serialise_i32 (N_to_i32 k)))).
-  { eapply load_store_same; [exact Hst | apply bytes_takefill_length]. }
-  change (N.of_nat 1) with 1%N in Hld.
-  unfold load_u8.
-  destruct Hk as [-> | ->].
-  - rewrite takefill_serialise_0 in Hld. rewrite Hld. vm_compute. reflexivity.
-  - rewrite takefill_serialise_1 in Hld. rewrite Hld. vm_compute. reflexivity.
-Qed.
-
-(** A one-byte store that fits succeeds. *)
-Lemma store_u8_exists : forall (m : meminst) (a : N) (c : i32),
-  (a + 1 <= operations.mem_length m)%N ->
-  exists m', store m a 0%N (serialise_i32 c) 1 = Some m'.
-Proof. intros m a c Ha. apply store_exists. lia. Qed.
-
-Lemma store_u8_length : forall (m m' : meminst) (a : N) (bs : bytes),
-  store m a 0%N bs 1 = Some m' ->
-  operations.mem_length m' = operations.mem_length m.
-Proof. intros m m' a bs Hs. eapply store_length; exact Hs. Qed.
-
-(** Byte reads are oblivious to disjoint stores of any width. *)
-Lemma load_u8_store_disjoint : forall (m m' : meminst) (a b : N) (bs : bytes) (l : nat),
-  store m a 0%N bs l = Some m' ->
-  ((b + 1 <= a)%N \/ (a + N.of_nat l <= b)%N) ->
-  load_u8 m' b = load_u8 m b.
-Proof.
-  intros m m' a b bs l Hs Hdis. unfold load_u8.
-  assert (Hld : load m' b 0%N (N.of_nat 1) = load m b 0%N (N.of_nat 1)).
-  { eapply load_store_disjoint; [exact Hs | cbn; lia]. }
-  change (N.of_nat 1) with 1%N in Hld. rewrite Hld. reflexivity.
-Qed.
-
-(** And conversely for the loads the epilogue does below a byte store. *)
-Lemma load_i32_store_disjoint_gen : forall (m m' : meminst) (a b : N) (bs : bytes) (l : nat),
-  store m a 0%N bs l = Some m' ->
-  ((b + 4 <= a)%N \/ (a + N.of_nat l <= b)%N) ->
-  load_i32 m' b = load_i32 m b.
-Proof.
-  intros m m' a b bs l Hs Hdis. unfold load_i32.
-  assert (Hld : load m' b 0%N (N.of_nat 4) = load m b 0%N (N.of_nat 4)).
-  { eapply load_store_disjoint; [exact Hs | cbn; lia]. }
-  change (N.of_nat 4) with 4%N in Hld. rewrite Hld. reflexivity.
-Qed.
-
-Lemma load_u8_store_i64_disjoint : forall (m m' : meminst) (a b : N) (v : value_num),
-  store_i64 m a v = Some m' ->
-  ((b + 1 <= a)%N \/ (a + 8 <= b)%N) ->
-  load_u8 m' b = load_u8 m b.
-Proof.
-  intros m m' a b v Hs Hdis. unfold store_i64 in Hs.
-  eapply load_u8_store_disjoint; [exact Hs | cbn; lia].
-Qed.
-
-Lemma load_i32_store_i64_disjoint : forall (m m' : meminst) (a b : N) (v : value_num),
-  store_i64 m a v = Some m' ->
-  ((b + 4 <= a)%N \/ (a + 8 <= b)%N) ->
-  load_i32 m' b = load_i32 m b.
-Proof.
-  intros m m' a b v Hs Hdis. unfold store_i64 in Hs.
-  eapply load_i32_store_disjoint_gen; [exact Hs | cbn; lia].
-Qed.
-
-(** The static offset of a [memarg], moved into the address, for the 8-byte
-    width ([certirocq_inv.v] has the 4-byte one). *)
-Lemma load_i64_offset : forall (m : meminst) (addr off : N),
-  load m addr off 8 = load m (addr + off)%N 0%N 8.
-Proof.
-  intros m addr off. unfold load.
-  replace (addr + (off + 8))%N with (addr + off + (0 + 8))%N by lia.
-  rewrite N.add_0_r. reflexivity.
-Qed.
-
-End WithMemory.
+(** The i32/i64 arithmetic this proof needs ([app_binop_align8],
+    [app_relop_lt0_s64_false], [app_relop_lt0_s64_true]) and the
+    byte-level store/load toolkit ([store_u8_load_01],
+    [load_i32_store_i64_disjoint], ...) live in
+    [WasmGlue.certirocq_adapter]: nothing in them mentions a WIT type. *)
 
 Section Correctness.
 
 Context `{ho : host}.
-
-(** ** The store-record level of the two stores
-
-    Like [smem_store_spec] in [certirocq_inv.v], with two additions: the
-    packed (byte) width, and the [s_tables] clause — the argument store in
-    [call_closure] happens after the table entry for the closure is known,
-    and the entry has to survive it. *)
-
-Lemma smem_store_packed_u8_spec : forall sr inst a off (c : i32) m m',
-  smem sr inst = Some m ->
-  store m (a + off)%N 0%N (serialise_i32 c) 1 = Some m' ->
-  exists sr',
-    smem_store_packed sr inst a off (VAL_int32 c) Tp_i8 = Some sr' /\
-    smem sr' inst = Some m' /\
-    s_globals sr' = s_globals sr /\
-    s_funcs sr' = s_funcs sr /\
-    s_tables sr' = s_tables sr.
-Proof.
-  intros sr inst a off c m m' Hmem Hst.
-  rewrite <- store_offset in Hst.
-  unfold smem in Hmem. unfold smem_store_packed, store_packed.
-  destruct (lookup_N (inst_mems inst) 0%N) as [addr|] eqn:Haddr; [|discriminate].
-  rewrite Hmem.
-  assert (Hst' : store m a off (serialise_num (VAL_int32 c))
-                   (ssrnat.nat_of_bin (tp_length Tp_i8)) = Some m')
-    by exact Hst.
-  rewrite Hst'.
-  eexists. split; [reflexivity|]. split; [| repeat split; reflexivity].
-  unfold smem. rewrite Haddr. cbn. unfold lookup_N.
-  rewrite nth_error_set_eq. reflexivity.
-Qed.
-
-Lemma smem_store_i64_spec : forall sr inst a off v m m',
-  smem sr inst = Some m ->
-  store_i64 m (a + off)%N v = Some m' ->
-  exists sr',
-    smem_store sr inst a off v T_i64 = Some sr' /\
-    smem sr' inst = Some m' /\
-    s_globals sr' = s_globals sr /\
-    s_funcs sr' = s_funcs sr /\
-    s_tables sr' = s_tables sr.
-Proof.
-  intros sr inst a off v m m' Hmem Hst.
-  unfold store_i64 in Hst. rewrite <- store_offset in Hst.
-  unfold smem in Hmem. unfold smem_store.
-  destruct (lookup_N (inst_mems inst) 0%N) as [addr|] eqn:Haddr; [|discriminate].
-  rewrite Hmem.
-  assert (Hst' : store m a off (serialise_num v)
-                   (ssrnat.nat_of_bin (tnum_length T_i64)) = Some m')
-    by exact Hst.
-  rewrite Hst'.
-  eexists. split; [reflexivity|]. split; [| repeat split; reflexivity].
-  unfold smem. rewrite Haddr. cbn. unfold lookup_N.
-  rewrite nth_error_set_eq. reflexivity.
-Qed.
 
 (** ** Function types
 
@@ -537,49 +282,6 @@ Proof.
   destruct e; [left | right]; reflexivity.
 Qed.
 
-(** ** Store plumbing
-
-    Two small gaps in [certirocq_inv.v]'s toolkit: a [global.set] leaves the
-    tables alone, and [stab_elem] only looks at them. *)
-
-Lemma supdate_glob_tables : forall sr inst j v sr',
-  supdate_glob sr inst j v = Some sr' -> s_tables sr' = s_tables sr.
-Proof.
-  intros sr inst j v sr' Hupd.
-  unfold supdate_glob, sglob_ind in Hupd.
-  destruct (lookup_N (inst_globals inst) j) as [a|]; [|discriminate].
-  cbn in Hupd. unfold supdate_glob_s in Hupd.
-  destruct (lookup_N (s_globals sr) a) as [g|]; [|discriminate].
-  cbn in Hupd. injection Hupd as <-. reflexivity.
-Qed.
-
-Lemma stab_elem_tables : forall sr sr' inst x i,
-  s_tables sr' = s_tables sr ->
-  stab_elem sr' inst x i = stab_elem sr inst x i.
-Proof.
-  intros sr sr' inst x i Ht. unfold stab_elem, stab. rewrite Ht. reflexivity.
-Qed.
-
-(** [adapter_inv] does not look at the memory's contents, so it survives any
-    store that keeps the globals and the memory's length. *)
-Lemma adapter_inv_mem_swap : forall sr sr' inst gmp (m' : meminst),
-  adapter_inv sr inst gmp ->
-  s_globals sr' = s_globals sr ->
-  smem sr' inst = Some m' ->
-  (gmp <= operations.mem_length m')%N ->
-  adapter_inv sr' inst gmp.
-Proof.
-  intros sr sr' inst gmp m' Hinv Hg Hm Hlen. constructor.
-  - rewrite (sglob_val_globals sr sr' inst glob_mem_ptr Hg).
-    apply (ai_gmp _ _ _ Hinv).
-  - apply (ai_gmp_even _ _ _ Hinv).
-  - rewrite (sglob_val_globals sr sr' inst glob_out_of_mem Hg).
-    apply (ai_oom _ _ _ Hinv).
-  - exists m'. split; [exact Hm | exact Hlen].
-  - apply (ai_no_wrap _ _ _ Hinv).
-  - apply (ai_glob_distinct _ _ _ Hinv).
-Qed.
-
 (** ** The export's frame
 
     One [i64] parameter, three [i32] locals: [ret], [arg], [clos]. *)
@@ -688,7 +390,7 @@ Lemma fail_spec : forall L hs sr inst fr0 (c : i64) ret arg clos
        [:: AI_frame 1 (exp_locs c ret arg clos inst)
              [:: AI_label 1 [::]
                    ([:: AI_label 0 [::]
-                          (to_e_list (fail_with L (error_code e)))]
+                          (to_e_list (fail_case L (error_code e)))]
                     ++ rest)]])
       (hs, sr', fr0, [:: AI_basic (i32c ret)]) /\
     smem sr' inst = Some m' /\
@@ -760,6 +462,8 @@ Lemma prologue_room_spec : forall hs sr inst (c : i64) gmp m rest,
        exp_locs c (alloc_ptr gmp 8) (alloc_ptr gmp 8 + 16) 0 inst,
        rest) /\
     adapter_inv sr' inst (alloc_ptr gmp 8 + 24) /\
+    scratch_ok 16 24 (alloc_ptr gmp 8) (alloc_ptr gmp 8 + 16)
+               (alloc_ptr gmp 8 + 24) /\
     smem sr' inst = Some m /\
     s_funcs sr' = s_funcs sr /\
     s_tables sr' = s_tables sr.
@@ -864,6 +568,8 @@ Proof.
     - exists m. split; [exact Hmemb | lia].
     - exact Hslack.
     - exact Hdist. }
+  split.
+  { constructor; [reflexivity | lia | lia | exists (4 * k8 + 8)%N; lia | lia]. }
   split; [exact Hmemb|].
   split.
   { rewrite (supdate_glob_funcs _ _ _ _ _ Hupd2)
@@ -888,17 +594,6 @@ Lemma to_e_list_export_body : forall L,
      ++ to_e_list (oom_check L)
      ++ to_e_list (epilogue L))%list.
 Proof. reflexivity. Qed.
-
-(** [native_at] only reads [inst_funcs] and the store's function list, so it
-    survives everything the adapter does to the store. *)
-Lemma native_at_funcs : forall sr sr' inst i ty fn,
-  s_funcs sr' = s_funcs sr ->
-  native_at sr inst i ty fn ->
-  native_at sr' inst i ty fn.
-Proof.
-  intros sr sr' inst i ty fn Hf [a [Hidx Hfunc]].
-  exists a. split; [exact Hidx |]. rewrite Hf. exact Hfunc.
-Qed.
 
 Lemma export_entry : forall L fi hs sr inst fr (c : i64),
   native_at sr inst fi ty_export (export_func L) ->
@@ -946,27 +641,6 @@ Proof.
   { apply (reduce_trans_frame 1 fr0). apply rt_step. apply r_simple.
     apply rs_label_const. reflexivity. }
   apply rt_step. apply r_simple. eapply rs_local_const; reflexivity.
-Qed.
-
-(** ** Dispatching an [if] on a flag that is literally 0 or 1
-
-    [glob_out_of_mem] is a flag, not a comparison, so neither [rs_if_*_bool]
-    applies to it. *)
-Lemma rs_if_false_N0 : forall tb es1 es2,
-  reduce_simple
-    [:: AI_basic (BI_const_num (VAL_int32 (N_to_i32 0)));
-        AI_basic (BI_if tb es1 es2)]
-    [:: AI_basic (BI_block tb es2)].
-Proof. intros tb es1 es2. apply rs_if_false. reflexivity. Qed.
-
-Lemma rs_if_true_N1 : forall tb es1 es2,
-  reduce_simple
-    [:: AI_basic (BI_const_num (VAL_int32 (N_to_i32 1)));
-        AI_basic (BI_if tb es1 es2)]
-    [:: AI_basic (BI_block tb es1)].
-Proof.
-  intros tb es1 es2. apply rs_if_true.
-  change (N_to_i32 1) with Wasm_int.Int32.one. exact Wasm_int.Int32.one_not_zero.
 Qed.
 
 (** ** The range check
@@ -1042,17 +716,7 @@ Lemma oom_check_pass : forall L hs sr fr rest,
   sglob_val sr (f_inst fr) glob_out_of_mem = Some (N_to_value 0) ->
   reduce_trans (hs, sr, fr, to_e_list (oom_check L) ++ rest)
                (hs, sr, fr, rest).
-Proof.
-  intros L hs sr fr rest Hoom.
-  cbn.
-  dostep_nary 0. apply r_global_get. exact Hoom.
-  dostep_nary 1. apply r_simple. apply rs_if_false_N0.
-  dostep_nary 0.
-  eapply r_block with (vs := [::]) (n := 0) (m := 0) (t1s := [::]) (t2s := [::]);
-    reflexivity.
-  dostep_nary 0. apply r_simple. apply rs_label_const. reflexivity.
-  apply rt_refl.
-Qed.
+Proof. intros L. apply oom_guard_pass. Qed.
 
 Lemma oom_check_fail : forall L hs sr inst fr0 (c : i64) ret arg clos rest m,
   native_at sr inst (ly_err L) ty_err (err_func L) ->
@@ -1147,18 +811,19 @@ Qed.
     The argument is boxed into the adapter's 8-byte scratch cell, the
     closure's [env] and [func_idx] fields are read out of the heap, and the
     call goes through the table at the type the component declared.  The box
-    sits above the return area and below the closure, so neither is
-    disturbed: that is what [ret + 16 <= arg] and [arg + 8 <= clos] buy. *)
+    sits above the return area and below the allocation frontier, so neither
+    the answer being written nor anything the backend allocated is disturbed
+    — which is what [scratch_ok] says, so the disjointness side conditions
+    below are its consequences rather than hypotheses of their own.  The one
+    fact it cannot supply is where the closure is: that comes from whoever
+    allocated it. *)
 Lemma call_closure_spec :
   forall L f hs sr inst (z : Z) ret arg clos gmp tfi env a cl m rest,
   adapter_inv sr inst gmp ->
   smem sr inst = Some m ->
   lookup_N (inst_types inst) (ly_ty_closure L) = Some ty_closure ->
-  (ret + 16 <= arg)%N ->
-  (arg + 8 <= clos)%N ->
-  (exists k, arg = 2 * k)%N ->
-  (arg + 8 <= gmp)%N ->
-  (arg < i32mod)%N ->
+  scratch_ok 16 24 ret arg gmp ->
+  (ret + 24 <= clos)%N ->
   (clos < i32mod)%N ->
   (tfi < i32mod)%N ->
   load_i32 m (clos + 4)%N = Some (VAL_int32 (N_to_i32 tfi)) ->
@@ -1186,8 +851,15 @@ Lemma call_closure_spec :
       \/ sglob_val sr' inst glob_out_of_mem = Some (N_to_value 1) ).
 Proof.
   intros L f hs sr inst z ret arg clos gmp tfi env a cl m rest
-         Hinv Hmem Hty Hret16 Hargclos Heven Hargmp Hargmod Hclosmod Htfimod
+         Hinv Hmem Hty Hscr Hclosge Hclosmod Htfimod
          Hf4 Hf8 Htab Hcl Hclty Htgt Hz.
+  (* the box sits above the return area and below the frontier, and the
+     closure was allocated above it: that is the whole of what the stores
+     below need, and all but the last of it comes out of [Hscr]. *)
+  have Harg := sk_arg _ _ _ _ _ Hscr.
+  have Hargmp := sk_box_below _ _ _ _ _ Hscr.
+  have Hargmod := sk_arg_mod _ _ _ _ _ Hscr.
+  have Heven := sk_even _ _ _ _ _ Hscr.
   destruct (ai_mem _ _ _ Hinv) as [m0 [Hmem0 Hgmplen]].
   assert (m0 = m) as -> by congruence.
   (* box the argument *)
@@ -1324,7 +996,7 @@ Proof.
                ++ to_e_list (oom_check L)
                ++ to_e_list (epilogue L))
               Hinv Hmem Hroom Hszmod)
-    as [sr1 [Hred1 [Hinv1 [Hmem1 [Hfun1 Htab1]]]]].
+    as [sr1 [Hred1 [Hinv1 [Hscr1 [Hmem1 [Hfun1 Htab1]]]]]].
   assert (Hpre1 : reduce_trans
     (hs, sr, fr,
      [:: AI_basic (BI_const_num (VAL_int64 (Z_to_i64 z))); AI_basic (BI_call fi)])
@@ -1412,12 +1084,19 @@ Proof.
              | unfold exp_locs; cbn; reflexivity]. }
         apply rt_refl. }
       clear Hpre3.
+      (* the backend only ever moved the frontier up, so the scratch area
+         the prologue carved out is still described by [scratch_ok] *)
+      assert (Hscr2 : scratch_ok 16 24 R (R + 16)%N gmp2).
+      { eapply scratch_ok_gmp_mono;
+          [exact Hscr1 | exact Hgle
+           | have := ai_no_wrap _ _ _ Hinv2; lia]. }
+      (* [$main_function] allocated the closure above the scratch area *)
+      assert (Hclosabove : (R + 24 <= clos)%N) by exact Hclosge.
       destruct (call_closure_spec L f hs2 sr2 inst z R (R + 16)%N clos gmp2
                   tfi env a cl m2
                   (to_e_list (oom_check L) ++ to_e_list (epilogue L))
-                  Hinv2 Hmem2 Hclosty (ltac:(lia)) (ltac:(lia))
-                  (ltac:(exists (4 * k8 + 8)%N; lia)) (ltac:(lia))
-                  (ltac:(lia)) Hclosmod Htfimod Hf4 Hf8 Htabe Hcla Hclty Htgt
+                  Hinv2 Hmem2 Hclosty Hscr2 Hclosabove
+                  Hclosmod Htfimod Hf4 Hf8 Htabe Hcla Hclty Htgt
                   (ltac:(lia)))
         as [hs3 [sr3 [m3 [Hredc [Hmem3 [Hlenc [Hagrc [Hfunc3 [Htabc Houtc]]]]]]]]].
       assert (Hpre5 : reduce_trans

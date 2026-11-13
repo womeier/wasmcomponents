@@ -41,51 +41,19 @@ From Wasm Require Import datatypes operations numerics.
 
 From Stdlib Require Import ZArith BinNat List Strings.String.
 
-From wasmcomponents Require Import certirocq_heap id63_abi.
+From WasmGlue Require Import certirocq_heap certirocq_adapter.
+From wasmcomponents Require Import id63_abi.
 
 Import ListNotations.
 
 (** ** Shorthands
 
-    These keep the bodies below diffable against [adapter.wat] by eye, which
-    is the only check there is until the parser closes the loop. *)
-Definition i32c (n : N) : basic_instruction :=
-  BI_const_num (VAL_int32 (N_to_i32 n)).
-
-Definition i64c (z : Z) : basic_instruction :=
-  BI_const_num (VAL_int64 (Z_to_i64 z)).
-
-(** [i32.const -8], the mask that rounds an address down to a multiple of 8. *)
-Definition i32c_neg8 : basic_instruction :=
-  BI_const_num (VAL_int32 (Wasm_int.Int32.repr (-8)%Z)).
-
-Definition add   : basic_instruction := BI_binop T_i32 (Binop_i BOI_add).
-Definition and_  : basic_instruction := BI_binop T_i32 (Binop_i BOI_and).
-Definition mul   : basic_instruction := BI_binop T_i32 (Binop_i BOI_mul).
-Definition gt_u  : basic_instruction := BI_relop T_i32 (Relop_i (ROI_gt SX_U)).
-Definition lt_s64 : basic_instruction := BI_relop T_i64 (Relop_i (ROI_lt SX_S)).
-
-(** Loads and stores at their natural alignment, which is what [wasm-tools]
-    encodes when the WAT leaves [align=] off: [align] is the log2 of the
-    width in bytes. *)
-Definition load_word (off : N) : basic_instruction :=
-  BI_load T_i32 None {| memarg_offset := off; memarg_align := 2%N |}.
-
-Definition load_i64_at (off : N) : basic_instruction :=
-  BI_load T_i64 None {| memarg_offset := off; memarg_align := 3%N |}.
-
-Definition store_byte (off : N) : basic_instruction :=
-  BI_store T_i32 (Some Tp_i8) {| memarg_offset := off; memarg_align := 0%N |}.
-
-Definition store_i64_at (off : N) : basic_instruction :=
-  BI_store T_i64 None {| memarg_offset := off; memarg_align := 3%N |}.
-
-(** The backend emits one table and the adapter imports it; imports come
-    first and the adapter defines none of its own, so it is index 0. *)
-Definition tbl_funcs : tableidx := 0%N.
-
-(** Page size, as the adapter spells it. *)
-Definition page_bytes : N := 65536.
+    [certirocq_adapter.v] carries the instruction shorthands ([i32c],
+    [load_word], [store_i64_at], ...), the index of the imported table
+    ([tbl_funcs]) and the page size — they are the same in every world the
+    generator emits for, and they are what keeps the bodies below diffable
+    against [adapter.wat] by eye, which is the only check there is until the
+    parser closes the loop. *)
 
 (** The adapter module's numbering, as described above.  Bundled rather than
     left as section variables so that every body below says which index it
@@ -142,42 +110,29 @@ Definition err_func : module_func := {|
 
     Split into the pieces the proof branches on. *)
 
-(** Round [glob_mem_ptr] up to a multiple of 8, take 24 bytes — 16 for the
-    return area, 8 for the boxed argument — and leave [glob_mem_ptr] past
-    them.  Runs before [$main_function], so the heap is still empty. *)
-Definition prologue : expr :=
-  [ BI_global_get glob_mem_ptr ; i32c 7 ; add ; i32c_neg8 ; and_
-  ; BI_global_set glob_mem_ptr
-  ; BI_global_get glob_mem_ptr ; BI_local_set 1%N
-  ; BI_local_get 1%N ; i32c 16 ; add ; BI_local_set 2%N
-  ; BI_local_get 1%N ; i32c 24 ; add ; BI_global_set glob_mem_ptr ].
+(** The scratch area: 24 bytes at an 8-aligned [glob_mem_ptr], 16 of them
+    the canonical return area and 8 the boxed argument.  [ret] is local 1
+    and [arg] local 2; [room_check] is [certirocq_adapter.v]'s, unchanged
+    — it has nothing world-specific in it. *)
+Definition prologue : expr := alloc_scratch 1%N 2%N 16 24.
 
-(** Nothing bounds-checks what the adapter takes for itself, and a store past
-    the end of the memory would trap instead of answering.  Reaching the
-    [unreachable] means there is no room for the return area at the bottom of
-    a fresh heap, which cannot be reported through a return area that does not
-    fit — the one failure with nowhere to go. *)
-Definition room_check : expr :=
-  [ BI_global_get glob_mem_ptr ; BI_memory_size ; i32c page_bytes ; mul ; gt_u
-  ; BI_if (BT_valtype None) [ BI_unreachable ] [] ].
-
-(** Answering [err] and returning, as both failure arms do. *)
-Definition fail_with (case : N) : expr :=
-  [ BI_local_get 1%N ; i32c case ; BI_call (ly_err L)
-  ; BI_local_get 1%N ; BI_return ].
+(** The failure arms, which are [certirocq_adapter.v]'s [fail_with] at this
+    world's error function and local. *)
+Definition fail_case (case : N) : expr :=
+  fail_with 1%N (ly_err L) case.
 
 (** A [u64] of 2^63 or more has no [Uint63.int], so it is rejected before the
     program runs rather than silently losing its top bit.  Read as an [i64]
-    that is exactly the negative half. *)
+    that is exactly the negative half.  This is the one check that is not
+    generic: what makes an argument out of range is the WIT type's business. *)
 Definition range_check : expr :=
   [ BI_local_get 0%N ; i64c 0 ; lt_s64
-  ; BI_if (BT_valtype None) (fail_with (error_code OutOfRange)) [] ].
+  ; BI_if (BT_valtype None) (fail_case (error_code OutOfRange)) [] ].
 
 (** [glob_out_of_mem] means the value in [glob_result] was never written, so
     neither of these checks is optional. *)
 Definition oom_check : expr :=
-  [ BI_global_get glob_out_of_mem
-  ; BI_if (BT_valtype None) (fail_with (error_code OutOfMemory)) [] ].
+  oom_guard 1%N (ly_err L) (error_code OutOfMemory).
 
 (** [$main_function] runs the whole program and leaves the export closure in
     [glob_result].  It allocates, so it can be what exhausts the memory. *)

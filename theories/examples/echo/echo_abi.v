@@ -19,7 +19,8 @@ From Wasm Require Import datatypes operations numerics bytes memory.
 
 From Stdlib Require Import ZArith BinNat List Strings.String Strings.Byte Lia.
 
-From wasmcomponents Require Import wit_ast wasm_mem certirocq_heap echo_heap.
+From WasmGlue Require Import wasm_mem certirocq_heap.
+From wasmcomponents Require Import wit_ast echo_heap.
 
 Import ListNotations.
 

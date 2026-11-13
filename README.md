@@ -2,13 +2,30 @@ WIP formalisation of the Wasm component standard
 
 Most of the code is written by LLMs and is experimental, it is not intended to be used by others.
 
+## Layout
+
+`theories/` is the component-model formalization and the verified
+adapters built on it.  `wasmglue/` is a separate package,
+`rocq-wasmcomponents-certirocq` (logical path `WasmGlue`): the glue layer —
+CertiRocq's calling convention and the adapter code
+`componentize-formal` emits — which depends on nothing in `theories/`.
+See `wasmglue/README.md`.
+
+The dev shell puts `wasmglue/` on `ROCQPATH`, so `make -C wasmglue`
+before `make` is enough to pick up changes to it.
+
 ## Usage
 ```
-# build package
+# build packages
 nix build .#wasmcomponents
+nix build .#wasmglue
 
 # enter dev shell
 nix develop
+
+# build, in the dev shell
+make -C wasmglue
+rocq makefile -f _RocqProject -o Makefile.rocq && make -f Makefile.rocq -j4
 
 # enter shell with package
 nix develop .#test-shell
