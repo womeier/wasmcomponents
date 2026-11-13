@@ -10,6 +10,20 @@ theories/component_values.v
 theories/itree.v
 theories/trace_events.v
 theories/trace_semantics.v
-theories/examples/add/add.v
+
+theories/wasm_mem.v
+theories/wasm_steps.v
+theories/certirocq_heap.v
+theories/certirocq_inv.v
+theories/core_instantiate.v
+
 theories/examples/state_machine/state_machine.v
 
+theories/examples/echo/echo_heap.v
+theories/examples/echo/echo_abi.v
+theories/examples/echo/echo_adapter.v
+theories/examples/echo/echo_correct.v
+
+theories/examples/id63/id63_abi.v
+theories/examples/id63/id63_adapter.v
+theories/examples/id63/id63_correct.v
