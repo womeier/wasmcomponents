@@ -7,7 +7,7 @@
     Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/Explainer.md#values}}
     *)
 
-From Stdlib Require Import String List.
+From Stdlib Require Import String List BinNat.
 Import ListNotations.
 From Wasm Require Import datatypes.
 
@@ -19,13 +19,54 @@ From Wasm Require Import datatypes.
     Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wit-component/src/ast.rs}}
     Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/Explainer.md#component-types}}
     *)
-Definition core_instance := moduleinst.
 Definition core_type := function_type.
 Definition instance := moduleinst.
 Definition alias := string.
 Definition start := module_start.
 Definition import := module_import.
 Definition export := module_export.
+
+(** ** Core instance definitions
+
+    Component binary section 02.  A core instance is *defined* by a component,
+    not handed to it: either a core module instantiated with arguments, or a
+    bag of exports gathered from things already in scope.
+
+    [CID_instantiate midx args] supplies one core instance per *first-level*
+    import name.  Core Wasm imports are two-level, so the adapter's
+    [(import "rocq" "memory" ...)] resolves by finding ["rocq"] among [args]
+    and then ["memory"] among that instance's exports.  That is the mechanism
+    this project uses instead of a static link: the CertiRocq module and the
+    adapter are two core modules of one component, and the adapter's imports
+    are resolved against the CertiRocq instance.  [core_instantiate.v] gives
+    it a semantics.
+
+    Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wasmparser/src/readers/component/instances.rs}}
+    Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/Explainer.md#core-instance-definitions}}
+    *)
+Inductive core_sort :=
+  | CSFunc | CSTable | CSMemory | CSGlobal | CSType | CSModule | CSInstance.
+
+(** One [(with "<name>" (instance <i>))] argument.  The MVP admits only
+    instances here, so the payload is a core instance index. *)
+Record core_instantiate_arg := {
+  cia_name     : name;
+  cia_instance : N
+}.
+
+Record core_inline_export := {
+  cie_name : name;
+  cie_sort : core_sort;
+  cie_idx  : N
+}.
+
+Inductive core_instance_def :=
+  (** [(core instance (instantiate <moduleidx> <args>))] *)
+  | CID_instantiate : N -> list core_instantiate_arg -> core_instance_def
+  (** [(core instance (export "n" (func <i>)) ...)] *)
+  | CID_inline_exports : list core_inline_export -> core_instance_def.
+
+Definition core_instance := core_instance_def.
 
 (** ** Canonical string encodings
 
@@ -132,7 +173,7 @@ with canonopt :=
 Inductive component : Type :=
   | Build_component
       (comp_core_modules : list module)
-      (comp_core_instances : list core_instance)
+      (comp_core_instances : list core_instance_def)
       (comp_core_types : list core_type)
       (comp_components : list component)
       (comp_instances : list instance)

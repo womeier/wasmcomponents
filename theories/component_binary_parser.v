@@ -131,9 +131,12 @@ Definition parse_core_module_payload (payload : list byte) : component_result (l
         0x00 + module_index:u32 + vec(instantiation_arg)  (Instantiate)
         0x01 + vec(export)                                (FromExports)
 
-    Since our AST represents core instances as [moduleinst] (a runtime type
-    that cannot be meaningfully constructed at parse time), we store
-    [empty_moduleinst] placeholders for each parsed instance.
+    The AST now carries the real shape ([core_instance_def] in
+    [component_ast.v]), but this parser still only counts the entries and
+    stores an empty [CID_inline_exports] for each: decoding the two cases
+    above is not done yet.  Anything that needs the actual definitions — such
+    as [core_instantiate.v]'s semantics — must be handed them directly rather
+    than read them out of a parsed component.
 
     Rust: {{https://github.com/bytecodealliance/wasm-tools/blob/cdc92a8f2eb1ef8ec9dbc78fd09f80b96dee282c/crates/wasmparser/src/readers/component/instances.rs}}
     Spec: {{https://github.com/WebAssembly/component-model/blob/9a183e56f5c6cc3217895adf54cc4f62de4fa5c9/design/mvp/Explainer.md#core-instance-definitions}}
@@ -141,7 +144,7 @@ Definition parse_core_module_payload (payload : list byte) : component_result (l
 Definition parse_core_instance_payload (payload : list byte) : component_result (list core_instance) :=
   match parse_payload_count payload with
   | Some (count, _) =>
-      component_ok (replicate (N.to_nat count) empty_moduleinst)
+      component_ok (replicate (N.to_nat count) (CID_inline_exports []))
   | None => component_err "malformed payload in section 2 (core_instance): invalid count"
   end.
 

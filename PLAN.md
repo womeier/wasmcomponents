@@ -399,7 +399,7 @@ theories/
 ├── module_to_component.v       # Wrapping transformation
 ├── component_tests.v
 ├── examples/
-│   ├── add/add.v           # Simple add function
+│   ├── id63/               # Identity on Uint63, scaffolded by componentize-formal
 │   └── random/random.v     # WASI insecure random
 └── extraction/
     └── extract.v           # OCaml extraction for tooling
