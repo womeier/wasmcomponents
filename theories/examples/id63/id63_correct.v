@@ -7,8 +7,9 @@
 
     ([id63_adapter.v]) writes the canonical-ABI return area of [id63_abi.v]
     correctly, relative to two hypotheses about the CertiRocq-compiled
-    backend it is instantiated against ([main_spec] and [call_target_spec]
-    below) — the id63 instance of the *primitive export contract*.
+    backend it is instantiated against ([main_certirocq_spec] and
+    [call_target_spec] below) — the id63 instance of the *primitive export
+    contract*.
 
     Unlike [echo_correct.v] there are no loops: the export is straight-line
     with three calls out, so the proof is one pass of the stepping toolkit
@@ -312,9 +313,9 @@ Record adapter_instance (L : layout) (fi : funcidx)
 
     [call_target_spec a]: invoking the closure's code at [a] on a boxed
     argument leaves a boxed [f z] in [glob_result] — or signals
-    [glob_out_of_mem].  [main_spec]: [$main_function] leaves the export's
-    closure in [glob_result] — or signals; the closure's two fields and its
-    table entry come with it, as does the behaviour of the entry. *)
+    [glob_out_of_mem].  [main_certirocq_spec]: [$main_function] leaves the
+    export's closure in [glob_result] — or signals; the closure's two fields
+    and its table entry come with it, as does the behaviour of the entry. *)
 Definition call_target_spec (inst : moduleinst) (f : Z -> Z)
                             (a : funcaddr) : Prop :=
   forall hs sr fr m gmp env argp z,
@@ -344,7 +345,7 @@ Definition call_target_spec (inst : moduleinst) (f : Z -> Z)
            repr_prim m' gmp' res (f z))
         \/ sglob_val sr' inst glob_out_of_mem = Some (N_to_value 1) ).
 
-Definition main_spec (L : layout) (f : Z -> Z) (inst : moduleinst) : Prop :=
+Definition main_certirocq_spec (L : layout) (f : Z -> Z) (inst : moduleinst) : Prop :=
   forall hs sr fr gmp m,
     f_inst fr = inst ->
     adapter_inv sr inst gmp ->
@@ -958,7 +959,7 @@ Definition id63_answer (f : Z -> Z) (z : Z) (r : i64 + abi_error) : Prop :=
 Theorem id63_export_correct :
   forall L fi f hs sr inst fr gmp m (z : Z),
   adapter_instance L fi sr inst ->
-  main_spec L f inst ->
+  main_certirocq_spec L f inst ->
   adapter_inv sr inst gmp ->
   smem sr inst = Some m ->
   f_inst fr = inst ->
